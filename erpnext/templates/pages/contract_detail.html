@@ -43,6 +43,7 @@
 					args: {
 						dn: $("#contract-terms").data('doc-name'),
 						signee: $('#contract-signee').val(),
+						user: frappe.session.user
 					},
 					freeze: true,
 					freeze_message: __("Saving..."),
@@ -65,12 +66,12 @@
 {% endblock %}
 
 {% block header_actions %}
-	<a class='btn btn-xs btn-default' href='/printview?doctype={{ doc.doctype }}&name={{ doc.name }}&format={{ print_format }}' target="_blank" rel="noopener noreferrer">{{ _("Print") }}</a>
+	<a class='btn btn-xs btn-default' href='/printview?doctype={{ doc.doctype }}&name={{ doc.name }}' target="_blank" rel="noopener noreferrer">{{ _("Print") }}</a>
 {% endblock %}
 
 {% block page_content %}
 	<div id="contract-terms" data-doc-name="{{ doc.name }}">
-		<p>{{ doc.contract_terms }}</p>
+		<p>{{ doc.contract_display }}</p>
 	</div>
 
 	{% if not doc.is_signed %}
