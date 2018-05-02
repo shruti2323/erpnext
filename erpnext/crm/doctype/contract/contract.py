@@ -16,9 +16,11 @@ class Contract(Document):
 		self.validate_dates()
 		self.update_contract_status()
 		self.update_fulfilment_status()
+		self.set_contract_display()
 
 	def on_update_after_submit(self):
 		self.update_contract_status()
+		self.set_contract_display()
 
 	def validate_dates(self):
 		if self.end_date and self.end_date < self.start_date:
@@ -29,6 +31,9 @@ class Contract(Document):
 			self.status = get_status(self.start_date, self.end_date)
 		else:
 			self.status = "Unsigned"
+
+	def set_contract_display(self):
+		self.contract_display = frappe.render_template(self.contract_terms, {"doc": self})
 
 	def update_fulfilment_status(self):
 		self.fulfilment_status = ""
@@ -122,13 +127,15 @@ def get_contract_list(doctype, txt, filters, limit_start, limit_page_length=20, 
 
 
 @frappe.whitelist()
-def accept_contract_terms(dn, signee):
+def accept_contract_terms(dn, signee, user):
 	contract = frappe.get_doc("Contract", dn)
 
 	contract.is_signed = True
 	contract.signee = signee
 	contract.signed_on = now_datetime()
+	contract.user_id = user
 	contract.flags.ignore_permissions = True
 
+	contract.run_method("set_contract_display")
 	contract.save()
 	frappe.db.commit()
