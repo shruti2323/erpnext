@@ -121,6 +121,7 @@ def get_contract_list(doctype, txt, filters, limit_start, limit_page_length=20, 
 
 		if customer:
 			filters.append(("Contract", "party_name", "=", customer.name))
+			filters.append(("Contract", "docstatus", "=", 1))
 			ignore_permissions = True
 
 	return get_list(doctype, txt, filters, limit_start, limit_page_length, ignore_permissions=ignore_permissions)
