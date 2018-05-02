@@ -18,7 +18,7 @@ class Contract(Document):
 		self.update_fulfilment_status()
 		self.set_contract_display()
 
-	def on_update_after_submit(self):
+	def before_update_after_submit(self):
 		self.update_contract_status()
 		self.set_contract_display()
 
