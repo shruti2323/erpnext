@@ -13,7 +13,31 @@
 
 	<script>
 		frappe.ready(function () {
-			$("#agree-contract").on("click", function () {
+			var $termsBox = $("#contract-terms");
+			var $agreeBtn = $("#agree-contract");
+			var $signeeName = $("#contract-signee");
+
+			function validateContractSigning() {
+				var isScrollVisible = $termsBox.get(0).scrollHeight > $termsBox.get(0).clientHeight;
+				var isScrolledToBottom = $termsBox.get(0).scrollHeight - $termsBox.scrollTop() < $termsBox.outerHeight();
+				var nameSigned = $signeeName.val();
+
+				var isValid = ( ( isScrollVisible && isScrolledToBottom ) || !isScrollVisible ) && (nameSigned && nameSigned.length > 3);
+				if ( isValid ) {
+					$agreeBtn.removeClass("disabled");
+				} else {
+					$agreeBtn.addClass("disabled");
+				}
+
+				return isValid;
+			}
+
+			$agreeBtn.on("click", function () {
+
+				if ( !validateContractSigning() ) {
+					return;
+				}
+
 				frappe.call({
 					method: "erpnext.crm.doctype.contract.contract.accept_contract_terms",
 					args: {
@@ -29,11 +53,12 @@
 					}
 				})
 			});
-			$("#contract-terms").bind("scroll", function (e) {
-				var elem = $(e.currentTarget);
-				if (elem[0].scrollHeight - elem.scrollTop() < elem.outerHeight()) {
-					$("#agree-contract").removeClass("disabled");
-				}
+			$signeeName.on("change keyup", function() {
+				validateContractSigning();
+			});
+
+			$termsBox.bind("scroll", function (e) {
+				validateContractSigning();
 			});
 		});
 	</script>
