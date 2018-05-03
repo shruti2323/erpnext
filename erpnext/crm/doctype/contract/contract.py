@@ -68,13 +68,14 @@ class Contract(Document):
 	def get_fulfilment_progress(self):
 		return len([term for term in self.fulfilment_terms if term.fulfilled])
 
-	def has_website_permission(self, doc, ptype, user, verbose=False):
-		"""
-		Returns `True` if the contract user matches
-		with the logged in user/customer
-		"""
 
-		return doc.party_user == frappe.session.user
+def has_website_permission(doc, ptype, user, verbose=False):
+	"""
+	Returns `True` if the contract user matches
+	with the logged in user/customer
+	"""
+
+	return doc.party_user == user
 
 
 def get_status(start_date, end_date):
