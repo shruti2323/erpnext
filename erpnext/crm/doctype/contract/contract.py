@@ -5,13 +5,20 @@
 from __future__ import unicode_literals
 
 import frappe
-from awesome_cart.compat.customer import get_current_customer
 from frappe import _
 from frappe.model.document import Document
-from frappe.utils import getdate, nowdate, now_datetime
+from frappe.utils import getdate, now_datetime, nowdate
 
 
 class Contract(Document):
+	def autoname(self):
+		name = self.party_name
+
+		if self.contract_template:
+			name += " - {} Agreement".format(self.contract_template)
+
+		self.name = name
+
 	def validate(self):
 		self.validate_dates()
 		self.update_contract_status()
@@ -20,6 +27,7 @@ class Contract(Document):
 
 	def before_update_after_submit(self):
 		self.update_contract_status()
+		self.update_fulfilment_status()
 		self.set_contract_display()
 
 	def validate_dates(self):
@@ -32,42 +40,41 @@ class Contract(Document):
 		else:
 			self.status = "Unsigned"
 
-	def set_contract_display(self):
-		self.contract_display = frappe.render_template(self.contract_terms, {"doc": self})
-
 	def update_fulfilment_status(self):
-		self.fulfilment_status = ""
+		fulfilment_status = "N/A"
 
 		if self.requires_fulfilment:
-			fulfilled_terms = self.get_fulfilled_terms()
+			fulfilment_progress = self.get_fulfilment_progress()
 
-			if not fulfilled_terms:
-				self.fulfilment_status = "Unfulfilled"
-			elif fulfilled_terms < len(self.fulfilment_terms):
-				self.fulfilment_status = "Partially Unfulfilled"
-			elif fulfilled_terms == len(self.fulfilment_terms):
-				self.fulfilment_status = "Fulfilled"
+			if not fulfilment_progress:
+				fulfilment_status = "Unfulfilled"
+			elif fulfilment_progress < len(self.fulfilment_terms):
+				fulfilment_status = "Partially Unfulfilled"
+			elif fulfilment_progress == len(self.fulfilment_terms):
+				fulfilment_status = "Fulfilled"
 
-			if self.fulfilment_deadline:
+			if fulfilment_status != "Fulfilled" and self.fulfilment_deadline:
 				now_date = getdate(nowdate())
 				deadline_date = getdate(self.fulfilment_deadline)
 
 				if now_date > deadline_date:
-					self.fulfilment_status = "Lapsed"
+					fulfilment_status = "Lapsed"
 
-	def get_fulfilled_terms(self):
+		self.fulfilment_status = fulfilment_status
+
+	def set_contract_display(self):
+		self.contract_display = frappe.render_template(self.contract_terms, {"doc": self})
+
+	def get_fulfilment_progress(self):
 		return len([term for term in self.fulfilment_terms if term.fulfilled])
 
 	def has_website_permission(self, doc, ptype, user, verbose=False):
 		"""
-		Returns `True` if the contract party name matches
+		Returns `True` if the contract user matches
 		with the logged in user/customer
 		"""
 
-		customer = get_current_customer()
-
-		if customer:
-			return doc.party_name == customer.name
+		return doc.party_user == frappe.session.user
 
 
 def get_status(start_date, end_date):
@@ -117,24 +124,20 @@ def get_contract_list(doctype, txt, filters, limit_start, limit_page_length=20, 
 		filters = []
 
 	if user != "Guest":
-		customer = get_current_customer()
-
-		if customer:
-			filters.append(("Contract", "party_name", "=", customer.name))
-			filters.append(("Contract", "docstatus", "=", 1))
-			ignore_permissions = True
+		filters.append(("Contract", "party_user", "=", user))
+		filters.append(("Contract", "docstatus", "=", 1))
+		ignore_permissions = True
 
 	return get_list(doctype, txt, filters, limit_start, limit_page_length, ignore_permissions=ignore_permissions)
 
 
 @frappe.whitelist()
-def accept_contract_terms(dn, signee, user):
+def accept_contract_terms(dn, signee):
 	contract = frappe.get_doc("Contract", dn)
 
 	contract.is_signed = True
 	contract.signee = signee
 	contract.signed_on = now_datetime()
-	contract.user_id = user
 	contract.flags.ignore_permissions = True
 
 	contract.run_method("set_contract_display")
