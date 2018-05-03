@@ -44,16 +44,16 @@ class Contract(Document):
 		fulfilment_status = "N/A"
 
 		if self.requires_fulfilment:
-			fulfilled_terms = self.get_fulfilled_terms()
+			fulfilment_progress = self.get_fulfilment_progress()
 
-			if not fulfilled_terms:
+			if not fulfilment_progress:
 				fulfilment_status = "Unfulfilled"
-			elif fulfilled_terms < len(self.fulfilment_terms):
+			elif fulfilment_progress < len(self.fulfilment_terms):
 				fulfilment_status = "Partially Unfulfilled"
-			elif fulfilled_terms == len(self.fulfilment_terms):
+			elif fulfilment_progress == len(self.fulfilment_terms):
 				fulfilment_status = "Fulfilled"
 
-			if self.fulfilment_deadline:
+			if fulfilment_status != "Fulfilled" and self.fulfilment_deadline:
 				now_date = getdate(nowdate())
 				deadline_date = getdate(self.fulfilment_deadline)
 
@@ -65,7 +65,7 @@ class Contract(Document):
 	def set_contract_display(self):
 		self.contract_display = frappe.render_template(self.contract_terms, {"doc": self})
 
-	def get_fulfilled_terms(self):
+	def get_fulfilment_progress(self):
 		return len([term for term in self.fulfilment_terms if term.fulfilled])
 
 	def has_website_permission(self, doc, ptype, user, verbose=False):
