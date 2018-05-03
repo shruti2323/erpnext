@@ -75,13 +75,13 @@
 
 	{% if not doc.is_signed %}
 		<div class="row" style="margin-top: 1em;">
-			You must scroll (and read) to the bottom of the EULA to enable the "I Agree" button.
+ 		Please read the contract carefully before agreeing.
 		</div>
 
 		<div class="row" style="margin-top: 2em;">
 			<form class="col-sm-12" style="text-align: right;">
 				<div style="display: inline-block; text-align: left;">
-					<label for="contract-signee" style="display: block; font-size: 0.8em;">Your Name:</label>
+					<label for="contract-signee" style="display: block; font-size: 0.8em;">Your Full Name:</label>
 					<input id="contract-signee" class="required" type="text" required>
 				</div>
 				<button id="agree-contract" class="btn btn-primary btn-sm disabled">I Agree</button>
