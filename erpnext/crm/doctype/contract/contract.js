@@ -7,18 +7,17 @@ cur_frm.add_fetch("contract_template", "requires_fulfilment", "requires_fulfilme
 // Add fulfilment terms from contract template into contract
 frappe.ui.form.on("Contract", {
 	contract_template: function (frm) {
-
 		if(frm.doc.contract_template) {
+			frappe.model.with_doc("Contract Template", frm.doc.contract_template, function () {
+				var tabletransfer = frappe.model.get_doc("Contract Template", frm.doc.contract_template);
 
-		frappe.model.with_doc("Contract Template", frm.doc.contract_template, function () {
-			var tabletransfer = frappe.model.get_doc("Contract Template", frm.doc.contract_template);
-			frm.doc.fulfilment_terms = []
-			$.each(tabletransfer.fulfilment_terms, function (index, row) {
-				d = frm.add_child("fulfilment_terms");
-				d.requirement = row.requirement;
-				frm.refresh_field("fulfilment_terms");
+				frm.doc.fulfilment_terms = [];
+				$.each(tabletransfer.fulfilment_terms, function (index, row) {
+					d = frm.add_child("fulfilment_terms");
+					d.requirement = row.requirement;
+					frm.refresh_field("fulfilment_terms");
+				});
 			});
-		});
-	}
+		}
 	}
 });

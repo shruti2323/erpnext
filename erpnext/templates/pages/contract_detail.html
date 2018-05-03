@@ -42,8 +42,7 @@
 					method: "erpnext.crm.doctype.contract.contract.accept_contract_terms",
 					args: {
 						dn: $("#contract-terms").data('doc-name'),
-						signee: $('#contract-signee').val(),
-						user: frappe.session.user
+						signee: $('#contract-signee').val()
 					},
 					freeze: true,
 					freeze_message: __("Saving..."),
