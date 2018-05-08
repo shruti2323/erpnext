@@ -23,14 +23,6 @@ $(document).bind('toolbar_setup', function() {
 
 	// additional help links for erpnext
 	var $help_menu = $('.dropdown-help ul .documentation-links');
-
-	$('<li><a data-link-type="forum" href="https://discuss.erpnext.com" \
-		target="_blank">'+__('User Forum')+'</a></li>').insertBefore($help_menu);
-	$('<li><a href="https://gitter.im/frappe/erpnext" \
-		target="_blank">'+__('Chat')+'</a></li>').insertBefore($help_menu);
-	$('<li><a href="https://github.com/frappe/erpnext/issues" \
-		target="_blank">'+__('Report an Issue')+'</a></li>').insertBefore($help_menu);
-
 });
 
 
