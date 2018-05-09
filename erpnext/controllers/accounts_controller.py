@@ -114,9 +114,8 @@ class AccountsController(TransactionBase):
 		calculate_taxes_and_totals(self)
 
 		hooks = frappe.get_hooks("on_calculate_taxes_and_totals") or []
-		if hooks:
-			for method in hooks:
-				frappe.call(method, doc=self)
+		for method in hooks:
+			frappe.call(method, doc=self)
 
 		if self.doctype in ["Quotation", "Sales Order", "Delivery Note", "Sales Invoice"]:
 			self.calculate_commission()
