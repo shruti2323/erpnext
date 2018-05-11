@@ -113,6 +113,10 @@ class AccountsController(TransactionBase):
 		from erpnext.controllers.taxes_and_totals import calculate_taxes_and_totals
 		calculate_taxes_and_totals(self)
 
+		hooks = frappe.get_hooks("on_calculate_taxes_and_totals") or []
+		for method in hooks:
+			frappe.call(method, doc=self)
+
 		if self.doctype in ["Quotation", "Sales Order", "Delivery Note", "Sales Invoice"]:
 			self.calculate_commission()
 			self.calculate_contribution()
