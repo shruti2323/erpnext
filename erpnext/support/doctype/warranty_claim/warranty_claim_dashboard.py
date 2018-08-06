@@ -21,7 +21,7 @@ def get_data():
 			},
 			{
 				'label': _('Fulfilment'),
-				'items': ['Sales Invoice', 'Delivery Note']
+				'items': ['Sales Invoice', 'Delivery Note', 'DTI Shipment Note']
 			}
 		]
 	}
