@@ -67,3 +67,33 @@ def make_maintenance_visit(source_name, target_doc=None):
 			map_child_doc(source_doc, target_doc, table_map, source_doc)
 
 		return target_doc
+
+
+def get_list_context(context=None):
+	from erpnext.controllers.website_list_for_contact import get_list_context
+
+	list_context = get_list_context(context)
+	list_context.update({
+		'show_sidebar': True,
+		'no_breadcrumbs': True,
+		'row_template': 'templates/includes/warranty_claim_row.html',
+		'get_list': get_warranty_claim_list,
+		'title': _('Warranty and Repair')
+	})
+	return list_context
+
+
+def get_warranty_claim_list(doctype, txt, filters, limit_start, limit_page_length=20, order_by=None):
+	from frappe.www.list import get_list
+
+	user = frappe.session.user
+	ignore_permissions = False
+
+	if not filters:
+		filters = []
+
+	if user != "Guest":
+		filters.append(("Warranty Claim", "contact_email", "=", user))
+		ignore_permissions = True
+
+	return get_list(doctype, txt, filters, limit_start, limit_page_length, ignore_permissions=ignore_permissions)
