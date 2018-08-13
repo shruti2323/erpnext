@@ -80,7 +80,8 @@ def has_website_permission(doc, ptype, user, verbose=False):
 	with the logged in user/customer
 	"""
 
-	return doc.party_user == user
+	party_users = [party_user.user for party_user in doc.party_users]
+	return (user in party_users)
 
 
 def get_status(start_date, end_date):
@@ -121,20 +122,36 @@ def get_list_context(context=None):
 
 
 def get_contract_list(doctype, txt, filters, limit_start, limit_page_length=20, order_by=None):
-	from frappe.www.list import get_list
+	contracts = frappe.db.sql("""
+		SELECT
+			contract.name
+		FROM
+			`tabContract` contract
+				LEFT JOIN `tabContract User` contract_user ON contract_user.parent = contract.name
+		WHERE
+			contract.docstatus=1
+				AND contract_user.user=%s
+	""", frappe.session.user)
 
-	user = frappe.session.user
-	ignore_permissions = False
+	if contracts:
+		return frappe.db.sql("""
+			SELECT * FROM `tabContract` contract WHERE contract.name in %s
+			ORDER BY contract.modified desc limit {0}, {1}
+			""".format(limit_start, limit_page_length), [contracts], as_dict=1)
 
-	if not filters:
-		filters = []
 
-	if user != "Guest":
-		filters.append(("Contract", "party_user", "=", user))
-		filters.append(("Contract", "docstatus", "=", 1))
-		ignore_permissions = True
+@frappe.whitelist()
+def get_party_users(doctype, txt, searchfield, start, page_len, filters):
+	if filters.get("party_type") in ("Customer", "Supplier"):
+		party_links = frappe.get_all("Dynamic Link",
+										filters={"parenttype": "Contact",
+												"link_doctype": filters.get("party_type"),
+												"link_name": filters.get("party_name")},
+										fields=["parent"])
 
-	return get_list(doctype, txt, filters, limit_start, limit_page_length, ignore_permissions=ignore_permissions)
+		party_users = [frappe.db.get_value("Contact", link.parent, "user") for link in party_links]
+
+		return frappe.get_all("User", filters={"email": ["in", party_users]}, as_list=True)
 
 
 @frappe.whitelist()
