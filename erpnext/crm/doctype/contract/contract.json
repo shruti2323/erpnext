@@ -349,7 +349,7 @@
   }, 
   {
    "allow_bulk_edit": 0, 
-   "allow_on_submit": 0, 
+   "allow_on_submit": 1, 
    "bold": 0, 
    "collapsible": 0, 
    "columns": 0, 
@@ -945,7 +945,7 @@
  "issingle": 0, 
  "istable": 0, 
  "max_attachments": 0, 
- "modified": "2018-08-13 06:06:13.658787", 
+ "modified": "2018-08-13 07:24:52.833340", 
  "modified_by": "Administrator", 
  "module": "CRM", 
  "name": "Contract", 

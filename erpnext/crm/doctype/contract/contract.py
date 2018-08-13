@@ -26,11 +26,13 @@ class Contract(Document):
 
 	def validate(self):
 		self.validate_dates()
+		self.remove_duplicate_users()
 		self.update_contract_status()
 		self.update_fulfilment_status()
 		self.set_contract_display()
 
 	def before_update_after_submit(self):
+		self.remove_duplicate_users()
 		self.update_contract_status()
 		self.update_fulfilment_status()
 		self.set_contract_display()
@@ -38,6 +40,20 @@ class Contract(Document):
 	def validate_dates(self):
 		if self.end_date and self.end_date < self.start_date:
 			frappe.throw(_("End Date cannot be before Start Date!"))
+
+	def remove_duplicate_users(self):
+		users = []
+		user_emails = []
+
+		for party_user in self.party_users:
+			if party_user.user not in user_emails:
+				user_emails.append(party_user.user)
+				users.append(party_user)
+
+		if len(self.party_users) != len(users):
+			self.party_users = users
+
+			frappe.msgprint(_("Removed duplicate users from the contract"))
 
 	def update_contract_status(self):
 		if self.is_signed:
