@@ -5,6 +5,7 @@
 from __future__ import unicode_literals
 
 import frappe
+from erpnext import get_default_company
 from frappe import _
 from frappe.model.document import Document
 from frappe.utils import getdate, now_datetime, nowdate
@@ -127,7 +128,6 @@ def get_list_context(context=None):
 	list_context = get_list_context(context)
 	list_context.update({
 		'show_sidebar': True,
-		'show_search': True,
 		'no_breadcrumbs': True,
 		"row_template": "templates/includes/contract_row.html",
 		'get_list': get_contract_list,
@@ -185,22 +185,32 @@ def accept_contract_terms(dn, signee):
 
 
 @frappe.whitelist()
-def send_contract_email(dn, email_recipients):
+def send_contract_email(doc_name, email_recipients):
 	if not email_recipients:
 		return
 
-	sender = frappe.session.user
-	sender_name = " ".join(frappe.db.get_value("User", sender, ["first_name", "last_name"]))
+	user_name = " ".join(frappe.db.get_value("User", frappe.session.user, ["first_name", "last_name"]))
 
-	email_ids = email_recipients.split("-")
-	recipients = [email_id.strip() for email_id in email_ids if email_id.strip() != sender]
+	email_ids = email_recipients.split(",")
+	recipients = [email_id.strip() for email_id in email_ids]
+	company = get_default_company()
 
 	# TODO: Rework subject and message based on JHA's feedback
-	subject = "{} shared a JH Audio Contract with you".format(sender_name)
-	message = "Please find attached the contract for {}.<br>- Jerry Harvey Audio LLC".format(sender_name)
+	subject = "{0} shared a contract with you".format(user_name)
+	message = "Please find attached the contract for {0}.<br>- {1}".format(user_name, company)
 
 	print_format = frappe.db.get_value("Print Format", filters={"doc_type": "Contract"})
-	attachments = [frappe.attach_print("Contract", dn, print_format=print_format)]
+	attachments = [frappe.attach_print("Contract", doc_name, print_format=print_format)]
 
-	frappe.sendmail(recipients=recipients, sender=sender, subject=subject,
-					message=message, attachments=attachments, cc=[sender])
+	frappe.sendmail(recipients=recipients, subject=subject, content=message,
+					attachments=attachments, doctype="Contract", name=doc_name)
+
+	comm = frappe.get_doc({
+		"doctype": "Communication",
+		"subject": "{0} shared the contract with the following recipients: {1}".format(frappe.session.user, ", ".join(recipients)),
+		"content": message,
+		"sent_or_received": "Sent",
+		"reference_doctype": "Contract",
+		"reference_name": doc_name
+	})
+	comm.insert(ignore_permissions=True)

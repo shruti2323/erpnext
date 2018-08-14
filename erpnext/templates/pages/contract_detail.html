@@ -15,8 +15,9 @@
 		frappe.ready(function () {
 			var $termsBox = $("#contract-terms");
 			var $agreeBtn = $("#agree-contract");
-			var $shareBtn = $("#share-contract");
 			var $signeeName = $("#contract-signee");
+			var $shareBtn = $("#share-contract");
+			var $shareEmails = $("#share-email");
 
 			function validateContractSigning() {
 				var isScrollVisible = $termsBox.get(0).scrollHeight > $termsBox.get(0).clientHeight;
@@ -31,23 +32,59 @@
 				}
 
 				return isValid;
-			}
+			};
+
+			function validateEmails(emails) {
+				if (!emails) {
+					return;
+				}
+
+				emailList = []
+				isValid = true;
+
+				// emails can be separated by comma or newline
+				emails.split(/[,\n](?=(?:[^"]|"[^"]*")*$)/g).forEach(function (email) {
+					email = email.trim();
+
+					if (email) {
+						emailList.push(email);
+					}
+				});
+
+				emailList.forEach(function (email) {
+					if (!validate_email(email)) {
+						isValid = false;
+					};
+				});
+
+				if (isValid) {
+					$shareBtn.removeClass("disabled");
+				} else {
+					$shareBtn.addClass("disabled");
+				}
+
+				return emailList
+			};
 
 			$shareBtn.on("click", function () {
+				if (!validateEmails($shareEmails.val())) {
+					return;
+				}
+
 				frappe.call({
 					method: "erpnext.crm.doctype.contract.contract.send_contract_email",
 					args: {
-						dn: $("#contract-terms").data('doc-name'),
-						email_recipients: $('#share-email').val()
+						doc_name: $("#contract-terms").data('doc-name'),
+						email_recipients: $shareEmails.val()
 					},
 					freeze: true,
 					freeze_message: __("Sharing..."),
 					callback: function (r) {
-						if (!r.exe) {
-							window.location.reload();
+						if (!r.exc) {
+							frappe.msgprint(__("The contract was successfully shared."))
 						}
 					}
-				})
+				});
 			});
 
 			$agreeBtn.on("click", function () {
@@ -69,6 +106,10 @@
 						}
 					}
 				})
+			});
+
+			$shareEmails.on("change keyup", function () {
+				validateEmails($shareEmails.val());
 			});
 
 			$signeeName.on("change keyup", function () {
@@ -103,11 +144,11 @@
 
 	<div class="row" style="margin-top: 2em;">
 		<form class="col-sm-6" style="text-align: left;">
-			<div style="display: inline-block; text-align: left;">
-				<label for="share-email" style="display: block; font-size: 0.8em;">Enter email address(es), separated by commas:</label>
-				<input id="share-email" type="email" placeholder="manager@x.com, artist@x.com" maxlength="256" multiple>
+			<div style="display: inline-block">
+				<label for="share-email" style="display: block; font-size: 0.8em;">Email a copy to: (use commas to separate multiple IDs)</label>
+				<input id="share-email" type="email" placeholder="manager@x.com, artist@x.com" maxlength="512" multiple>
 			</div>
-			<button id="share-contract" class="btn btn-primary btn-sm">Share</button>
+			<button id="share-contract" class="btn btn-primary btn-sm disabled">Send</button>
 		</form>
 		{% if not doc.is_signed %}
 			<form class="col-sm-6" style="text-align: right;">
