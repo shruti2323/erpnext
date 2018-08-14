@@ -182,3 +182,25 @@ def accept_contract_terms(dn, signee):
 	contract.run_method("set_contract_display")
 	contract.save()
 	frappe.db.commit()
+
+
+@frappe.whitelist()
+def send_contract_email(dn, email_recipients):
+	if not email_recipients:
+		return
+
+	sender = frappe.session.user
+	sender_name = " ".join(frappe.db.get_value("User", sender, ["first_name", "last_name"]))
+
+	email_ids = email_recipients.split("-")
+	recipients = [email_id.strip() for email_id in email_ids if email_id.strip() != sender]
+
+	# TODO: Rework subject and message based on JHA's feedback
+	subject = "{} shared a JH Audio Contract with you".format(sender_name)
+	message = "Please find attached the contract for {}.<br>- Jerry Harvey Audio LLC".format(sender_name)
+
+	print_format = frappe.db.get_value("Print Format", filters={"doc_type": "Contract"})
+	attachments = [frappe.attach_print("Contract", dn, print_format=print_format)]
+
+	frappe.sendmail(recipients=recipients, sender=sender, subject=subject,
+					message=message, attachments=attachments, cc=[sender])

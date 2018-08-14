@@ -15,6 +15,7 @@
 		frappe.ready(function () {
 			var $termsBox = $("#contract-terms");
 			var $agreeBtn = $("#agree-contract");
+			var $shareBtn = $("#share-contract");
 			var $signeeName = $("#contract-signee");
 
 			function validateContractSigning() {
@@ -22,8 +23,8 @@
 				var isScrolledToBottom = $termsBox.get(0).scrollHeight - $termsBox.scrollTop() < $termsBox.outerHeight();
 				var nameSigned = $signeeName.val();
 
-				var isValid = ( ( isScrollVisible && isScrolledToBottom ) || !isScrollVisible ) && (nameSigned && nameSigned.length > 3);
-				if ( isValid ) {
+				var isValid = ((isScrollVisible && isScrolledToBottom) || !isScrollVisible) && (nameSigned && nameSigned.length > 3);
+				if (isValid) {
 					$agreeBtn.removeClass("disabled");
 				} else {
 					$agreeBtn.addClass("disabled");
@@ -32,9 +33,25 @@
 				return isValid;
 			}
 
-			$agreeBtn.on("click", function () {
+			$shareBtn.on("click", function () {
+				frappe.call({
+					method: "erpnext.crm.doctype.contract.contract.send_contract_email",
+					args: {
+						dn: $("#contract-terms").data('doc-name'),
+						email_recipients: $('#share-email').val()
+					},
+					freeze: true,
+					freeze_message: __("Sharing..."),
+					callback: function (r) {
+						if (!r.exe) {
+							window.location.reload();
+						}
+					}
+				})
+			});
 
-				if ( !validateContractSigning() ) {
+			$agreeBtn.on("click", function () {
+				if (!validateContractSigning()) {
 					return;
 				}
 
@@ -53,7 +70,8 @@
 					}
 				})
 			});
-			$signeeName.on("change keyup", function() {
+
+			$signeeName.on("change keyup", function () {
 				validateContractSigning();
 			});
 
@@ -77,32 +95,45 @@
 		<div class="row" style="margin-top: 1em;">
  		Please read the contract carefully before agreeing.
 		</div>
-
-		<div class="row" style="margin-top: 2em;">
-			<form class="col-sm-12" style="text-align: right;">
-				<div style="display: inline-block; text-align: left;">
-					<label for="contract-signee" style="display: block; font-size: 0.8em;">Your Full Name:</label>
-					<input id="contract-signee" class="required" type="text" required>
-				</div>
-				<button id="agree-contract" class="btn btn-primary btn-sm disabled">I Agree</button>
-			</form>
-		</div>
 	{% else %}
 		<div class="row" style="margin-top: 1em;">
 			This contract was signed by <strong>{{ doc.signee }}</strong> on <strong>{{ frappe.format_date(doc.signed_on) }}</strong>.
 		</div>
 	{% endif %}
 
+	<div class="row" style="margin-top: 2em;">
+		<form class="col-sm-6" style="text-align: left;">
+			<div style="display: inline-block; text-align: left;">
+				<label for="share-email" style="display: block; font-size: 0.8em;">Enter email address(es), separated by commas:</label>
+				<input id="share-email" type="email" placeholder="manager@x.com, artist@x.com" maxlength="256" multiple>
+			</div>
+			<button id="share-contract" class="btn btn-primary btn-sm">Share</button>
+		</form>
+		{% if not doc.is_signed %}
+			<form class="col-sm-6" style="text-align: right;">
+				<div style="display: inline-block; text-align: left;">
+					<label for="contract-signee" style="display: block; font-size: 0.8em;">Your Full Name:</label>
+					<input id="contract-signee" class="required" type="text" required>
+				</div>
+				<button id="agree-contract" class="btn btn-primary btn-sm disabled">I Agree</button>
+			</form>
+		{% endif %}
+	</div>
+
 	<style>
-		#agree-contract.btn-primary {
+		#agree-contract.btn-primary, #share-contract.btn-primary {
 			font-size: 1.2em;
 			padding: 0.1em 1em;
 			margin: 0.9em 0em;
 		}
 
-		#agree-contract.btn-primary.disabled {
+		#agree-contract.btn-primary.disabled, #share-contract.btn-primary.disabled {
 			background-color: #292929;
 			border-color: #292929;
+		}
+
+		#share-email {
+			width: 100%;
 		}
 
 		#contract-signee.required {
