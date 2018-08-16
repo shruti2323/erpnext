@@ -6,6 +6,18 @@ cur_frm.add_fetch("contract_template", "requires_fulfilment", "requires_fulfilme
 
 // Add fulfilment terms from contract template into contract
 frappe.ui.form.on("Contract", {
+	start_date: function (frm) {
+		var end_date = frappe.datetime.add_days(frm.doc.start_date, 365);
+		frm.set_value("end_date", end_date);
+
+		var fulfilment_deadline = frappe.datetime.add_days(frm.doc.start_date, 60);
+		frm.set_value("fulfilment_deadline", fulfilment_deadline);
+	},
+
+	requires_fulfilment: function (frm) {
+		frm.toggle_reqd("fulfilment_terms", frm.doc.requires_fulfilment);
+	},
+
 	contract_template: function (frm) {
 		if(frm.doc.contract_template) {
 			frappe.model.with_doc("Contract Template", frm.doc.contract_template, function () {
