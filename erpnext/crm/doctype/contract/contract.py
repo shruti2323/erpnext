@@ -51,7 +51,7 @@ class Contract(Document):
 				user_emails.append(party_user.user)
 				users.append(party_user)
 
-		if len(self.party_users) != len(users):
+		if self.party_users.sort() != users.sort():
 			self.party_users = users
 
 			frappe.msgprint(_("Removed duplicate users from the contract"))
