@@ -8,7 +8,7 @@ import frappe
 from erpnext import get_default_company
 from frappe import _
 from frappe.model.document import Document
-from frappe.utils import getdate, now_datetime, nowdate
+from frappe.utils import get_link_to_form, getdate, now_datetime, nowdate
 
 
 class Contract(Document):
@@ -93,8 +93,8 @@ class Contract(Document):
 
 def has_website_permission(doc, ptype, user, verbose=False):
 	"""
-	Returns `True` if the contract user matches
-	with the logged in user/customer
+		Returns `True` if the contract user matches
+		with the logged in user/customer
 	"""
 
 	party_users = [party_user.user for party_user in doc.party_users]
@@ -113,13 +113,105 @@ def get_status(start_date, end_date):
 
 
 def update_status_for_contracts():
-	contracts = frappe.get_all("Contract", filters={"is_signed": True, "docstatus": 1}, fields=["name", "start_date", "end_date"])
+	"""
+		Daily scheduler event to verify and update contract status
+	"""
+
+	contracts = frappe.get_all("Contract", filters={"docstatus": 1})
 
 	for contract in contracts:
-		status = get_status(contract.get("start_date"),
-							contract.get("end_date"))
+		contract_doc = frappe.get_doc("Contract", contract.name)
 
-		frappe.db.set_value("Contract", contract.get("name"), "status", status)
+		current_statuses = (contract_doc.status, contract_doc.fulfilment_status)
+
+		contract_doc.update_contract_status()
+		contract_doc.update_fulfilment_status()
+
+		if current_statuses != (contract_doc.status, contract_doc.fulfilment_status):
+			contract_doc.save()
+
+
+def verify_fulfilment_checklist():
+	"""
+		Daily scheduler event to verify progress of fulfilment
+		checklist before the deadline date. If lapsed, create
+		an invoice with a grand total equal to the sum of all discounted
+		amounts for orders placed while the contract was active.
+	"""
+
+	filters = [
+		["docstatus", "=", 1],
+		["party_type", "=", "Customer"],
+		["start_date", "not in", [0, None, ""]],
+		["fulfilment_deadline", "not in", [0, None, ""]],
+		["fulfilment_deadline", "<", getdate(nowdate())],
+		["fulfilment_status", "!=", "Lapsed"]
+	]
+
+	contracts = frappe.get_all("Contract", filters=filters, fields=["name", "start_date", "party_name", "fulfilment_deadline"])
+
+	invoice_list = []
+	for contract in contracts:
+		orders = frappe.get_all("Sales Order",
+								filters={"customer": contract.party_name,
+										"creation": ["between", [contract.start_date, contract.fulfilment_deadline]]},
+								fields=["additional_discount_amount"])
+
+		discount_amount = sum([order.additional_discount_amount for order in orders])
+
+		if discount_amount > 0:
+			sales_invoice = create_sales_invoice(contract.name, contract.party_name, discount_amount)
+			invoice_list.append(sales_invoice)
+
+	if invoice_list:
+		send_email_notification(invoice_list)
+
+
+def create_sales_invoice(contract, customer_name, amount):
+	sales_invoice = frappe.new_doc("Sales Invoice")
+
+	sales_invoice.update({
+		"customer": customer_name,
+		"company": get_default_company(),
+		"contract": contract,
+		"exempt_from_sales_tax": 1,
+		"items": [
+			{
+				"item_name": "Contract Relapse Fee for {0}".format(contract),
+				"description": "This fee is charged for the non-compliance of contract {0}".format(get_link_to_form("Contract", contract)),
+				"qty": 1,
+				"uom": "Nos",
+				"rate": amount,
+				"conversion_factor": 1,
+				"income_account": frappe.db.get_value("Company", get_default_company(), "default_income_account")
+			}
+		]
+	})
+
+	sales_invoice.set_missing_values()
+	sales_invoice.flags.exempt_from_sales_tax = True
+	sales_invoice.insert()
+
+	return sales_invoice
+
+
+def send_email_notification(invoice_list):
+	"""
+		Notify user about auto-creation of invoices
+	"""
+
+	if not invoice_list:
+		return
+
+	recipient = frappe.db.get_single_value("JH Audio Settings", "contract_manager")
+
+	if recipient:
+		subject = "Sales Invoices Generated for Relapsed Contracts"
+		message = frappe.render_template("templates/lapsed_contracts.html", {
+			"invoice_list": invoice_list
+		})
+
+		frappe.sendmail(recipients=recipient, subject=subject, message=message)
 
 
 def get_list_context(context=None):
