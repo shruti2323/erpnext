@@ -28,14 +28,14 @@ class Contract(Document):
 	def validate(self):
 		self.validate_dates()
 		self.remove_duplicate_users()
-		self.update_contract_status()
 		self.update_fulfilment_status()
+		self.update_contract_status()
 		self.set_contract_display()
 
 	def before_update_after_submit(self):
 		self.remove_duplicate_users()
-		self.update_contract_status()
 		self.update_fulfilment_status()
+		self.update_contract_status()
 		self.set_contract_display()
 
 	def validate_dates(self):
@@ -57,10 +57,15 @@ class Contract(Document):
 			frappe.msgprint(_("Removed duplicate users from the contract"))
 
 	def update_contract_status(self):
+		if self.fulfilment_status and self.fulfilment_status == "Lapsed":
+			status = "Inactive"
+
 		if self.is_signed:
-			self.status = get_status(self.start_date, self.end_date)
+			status = get_status(self.start_date, self.end_date)
 		else:
-			self.status = "Unsigned"
+			status = "Unsigned"
+
+		self.status = status
 
 	def update_fulfilment_status(self):
 		fulfilment_status = "N/A"
@@ -131,22 +136,20 @@ def update_status_for_contracts():
 			contract_doc.save()
 
 
-def verify_fulfilment_checklist():
+def create_invoice_for_lapsed_contracts():
 	"""
-		Daily scheduler event to verify progress of fulfilment
-		checklist before the deadline date. If lapsed, create
-		an invoice with a grand total equal to the sum of all discounted
-		amounts for orders placed while the contract was active.
+		Daily scheduler event to create invoices for lapsed contracts.
+		The invoice will contain items with the amount equal to the
+		discount applied for each placed order while the contract was active.
 	"""
 
-	filters = [
-		["docstatus", "=", 1],
-		["party_type", "=", "Customer"],
-		["start_date", "not in", [0, None, ""]],
-		["fulfilment_deadline", "not in", [0, None, ""]],
-		["fulfilment_deadline", "<", getdate(nowdate())],
-		["fulfilment_status", "!=", "Lapsed"]
-	]
+	filters = {
+		"docstatus": 1,
+		"party_type": "Customer",
+		"start_date": ["not in", [0, None, ""]],
+		"sales_invoice": None,
+		"fulfilment_status": "Lapsed"
+	}
 
 	contracts = frappe.get_all("Contract", filters=filters, fields=["name", "start_date", "party_name", "fulfilment_deadline"])
 
@@ -155,41 +158,47 @@ def verify_fulfilment_checklist():
 		orders = frappe.get_all("Sales Order",
 								filters={"customer": contract.party_name,
 										"creation": ["between", [contract.start_date, contract.fulfilment_deadline]]},
-								fields=["additional_discount_amount"])
+								fields=["name", "additional_discount_amount"])
 
-		discount_amount = sum([order.additional_discount_amount for order in orders])
+		order_discounts = {order.name: order.additional_discount_amount for order in orders}
 
-		if discount_amount > 0:
-			sales_invoice = create_sales_invoice(contract.name, contract.party_name, discount_amount)
+		if order_discounts:
+			sales_invoice = create_sales_invoice(contract.name, contract.party_name, order_discounts)
 			invoice_list.append(sales_invoice)
+
+			frappe.db.set_value("Contract", contract.name, "sales_invoice", sales_invoice.name)
+			frappe.db.commit()
 
 	if invoice_list:
 		send_email_notification(invoice_list)
 
 
-def create_sales_invoice(contract, customer_name, amount):
+def create_sales_invoice(contract, customer_name, order_discounts):
 	sales_invoice = frappe.new_doc("Sales Invoice")
 
 	sales_invoice.update({
 		"customer": customer_name,
 		"company": get_default_company(),
 		"contract": contract,
-		"exempt_from_sales_tax": 1,
-		"items": [
-			{
-				"item_name": "Contract Relapse Fee for {0}".format(contract),
-				"description": "This fee is charged for the non-compliance of contract {0}".format(get_link_to_form("Contract", contract)),
-				"qty": 1,
-				"uom": "Nos",
-				"rate": amount,
-				"conversion_factor": 1,
-				"income_account": frappe.db.get_value("Company", get_default_company(), "default_income_account")
-			}
-		]
+		"exempt_from_sales_tax": 1
 	})
 
+	contract_link = get_link_to_form("Contract", contract)
+
+	for order, discount in order_discounts.items():
+		order_link = get_link_to_form("Sales Order", order)
+
+		sales_invoice.append("items", {
+			"item_name": "Contract Relapse Fee for {0}".format(order),
+			"description": "This fee is charged for the non-compliance of contract {0} based on order {1}".format(contract_link, order_link),
+			"qty": 1,
+			"uom": "Nos",
+			"rate": discount,
+			"conversion_factor": 1,
+			"income_account": frappe.db.get_value("Company", get_default_company(), "default_income_account")
+		})
+
 	sales_invoice.set_missing_values()
-	sales_invoice.flags.exempt_from_sales_tax = True
 	sales_invoice.insert()
 
 	return sales_invoice
@@ -212,6 +221,23 @@ def send_email_notification(invoice_list):
 		})
 
 		frappe.sendmail(recipients=recipient, subject=subject, message=message)
+
+
+def update_contract_invoice_status():
+	"""
+		Hourly scheduler event to update the sales invoice
+		status for a linked contract
+	"""
+
+	contracts = frappe.get_all("Contract",
+								filters=[["sales_invoice", "not in", [None, ""]]],
+								fields=["name", "sales_invoice", "sales_invoice_status"])
+
+	for contract in contracts:
+		sales_invoice_status = frappe.db.get_value("Sales Invoice", contract.sales_invoice, "status")
+
+		if sales_invoice_status != contract.sales_invoice_status:
+			frappe.db.set_value("Contract", contract.name, "sales_invoice_status", sales_invoice_status)
 
 
 def get_list_context(context=None):

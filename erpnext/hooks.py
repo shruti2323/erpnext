@@ -217,7 +217,8 @@ doc_events = {
 scheduler_events = {
 	"hourly": [
 		"erpnext.accounts.doctype.subscription.subscription.make_subscription_entry",
-		'erpnext.hr.doctype.daily_work_summary_settings.daily_work_summary_settings.trigger_emails'
+		'erpnext.hr.doctype.daily_work_summary_settings.daily_work_summary_settings.trigger_emails',
+		"erpnext.crm.doctype.contract.contract.update_contract_invoice_status"
 	],
 	"daily": [
 		"erpnext.stock.reorder_item.reorder_item",
@@ -236,7 +237,7 @@ scheduler_events = {
 		"erpnext.manufacturing.doctype.bom_update_tool.bom_update_tool.update_latest_price_in_all_boms",
 		"erpnext.assets.doctype.asset.asset.update_maintenance_status",
 		"erpnext.crm.doctype.contract.contract.update_status_for_contracts"
-		"erpnext.crm.doctype.contract.contract.verify_fulfilment_checklist"
+		"erpnext.crm.doctype.contract.contract.create_invoice_for_lapsed_contracts"
 	]
 }
 
