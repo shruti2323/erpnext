@@ -60,8 +60,7 @@ class Contract(Document):
 	def update_contract_status(self):
 		if self.fulfilment_status and self.fulfilment_status == "Lapsed":
 			status = "Inactive"
-
-		if self.is_signed:
+		elif self.is_signed:
 			status = get_status(self.start_date, self.end_date)
 		else:
 			status = "Unsigned"
@@ -69,7 +68,7 @@ class Contract(Document):
 		self.status = status
 
 	def update_fulfilment_status(self):
-		fulfilment_status = "N/A"
+		fulfilment_status = ""
 
 		if self.requires_fulfilment:
 			fulfilment_progress = self.get_fulfilment_progress()
@@ -99,8 +98,8 @@ class Contract(Document):
 
 def has_website_permission(doc, ptype, user, verbose=False):
 	"""
-		Returns `True` if the contract user matches
-		with the logged in user/customer
+		Returns `True` if any of the contract user(s)
+		matches the logged in user/customer
 	"""
 
 	party_users = [party_user.user for party_user in doc.party_users]
@@ -197,6 +196,7 @@ def create_sales_invoice(contract, customer_name, order_discounts):
 			"uom": "Nos",
 			"rate": discount,
 			"conversion_factor": 1,
+			# TODO: make income account configurable from the frontend
 			"income_account": frappe.db.get_value("Company", get_default_company(), "default_income_account")
 		})
 
@@ -233,7 +233,8 @@ def update_contract_invoice_status():
 	"""
 
 	contracts = frappe.get_all("Contract",
-								filters=[["sales_invoice", "not in", [None, ""]]],
+								filters={"sales_invoice": ["!=", None],
+										"docstatus": 1},
 								fields=["name", "sales_invoice", "sales_invoice_status"])
 
 	for contract in contracts:

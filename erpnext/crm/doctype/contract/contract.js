@@ -19,6 +19,7 @@ frappe.ui.form.on("Contract", {
 	},
 
 	start_date: function (frm) {
+		// TODO: make the periods configurable from the frontend
 		var end_date = frappe.datetime.add_days(frm.doc.start_date, 365);
 		frm.set_value("end_date", end_date);
 
