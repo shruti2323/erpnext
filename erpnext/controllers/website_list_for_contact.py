@@ -77,7 +77,7 @@ def get_list_for_transactions(doctype, txt, filters, limit_start, limit_page_len
 
 	if or_filters:
 		for r in frappe.get_list(doctype, fields=fields,filters=filters, or_filters=or_filters,
-			limit_start=limit_start, limit_page_length=limit_page_length, 
+			limit_start=limit_start, limit_page_length=limit_page_length,
 			ignore_permissions=ignore_permissions, order_by=order_by):
 			data.append(r)
 
@@ -132,11 +132,11 @@ def get_customers_suppliers(doctype, user):
 
 	if has_common(["Supplier", "Customer"], frappe.get_roles(user)):
 		contacts = frappe.db.sql("""
-			select 
+			select
 				`tabContact`.email_id,
 				`tabDynamic Link`.link_doctype,
 				`tabDynamic Link`.link_name
-			from 
+			from
 				`tabContact`, `tabDynamic Link`
 			where
 				`tabContact`.name=`tabDynamic Link`.parent and `tabContact`.email_id =%s

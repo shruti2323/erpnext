@@ -16,25 +16,83 @@
 			var $termsBox = $("#contract-terms");
 			var $agreeBtn = $("#agree-contract");
 			var $signeeName = $("#contract-signee");
+			var $shareBtn = $("#share-contract");
+			var $shareEmails = $("#share-email");
 
 			function validateContractSigning() {
 				var isScrollVisible = $termsBox.get(0).scrollHeight > $termsBox.get(0).clientHeight;
 				var isScrolledToBottom = $termsBox.get(0).scrollHeight - $termsBox.scrollTop() < $termsBox.outerHeight();
 				var nameSigned = $signeeName.val();
 
-				var isValid = ( ( isScrollVisible && isScrolledToBottom ) || !isScrollVisible ) && (nameSigned && nameSigned.length > 3);
-				if ( isValid ) {
+				var isValid = ((isScrollVisible && isScrolledToBottom) || !isScrollVisible) && (nameSigned && nameSigned.length > 3);
+				if (isValid) {
 					$agreeBtn.removeClass("disabled");
 				} else {
 					$agreeBtn.addClass("disabled");
 				}
 
 				return isValid;
-			}
+			};
+
+			function validateEmails(emails) {
+				if (!emails) {
+					return;
+				}
+
+				emailList = []
+				isValid = true;
+
+				// sourced from http://form.guide/best-practices/validate-email-address-using-javascript.html
+				// in-built validator breaks at 3 characters after the '@' symbol
+				var regExp = /^(?:[a-z0-9!#$%&amp;'*+/=?^_`{|}~-]+(?:\.[a-z0-9!#$%&amp;'*+/=?^_`{|}~-]+)*|"(?:[\x01-\x08\x0b\x0c\x0e-\x1f\x21\x23-\x5b\x5d-\x7f]|\\[\x01-\x09\x0b\x0c\x0e-\x7f])*")@(?:(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]*[a-z0-9])?|\[(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?|[a-z0-9-]*[a-z0-9]:(?:[\x01-\x08\x0b\x0c\x0e-\x1f\x21-\x5a\x53-\x7f]|\\[\x01-\x09\x0b\x0c\x0e-\x7f])+)\])$/;
+
+				// emails can be separated by comma or newline
+				emails.split(/[,\n](?=(?:[^"]|"[^"]*")*$)/g).forEach(function (email) {
+					email = email.trim();
+
+					if (email) {
+						emailList.push(email);
+					}
+				});
+
+				emailList.forEach(function (email) {
+					if (!regExp.test(email)) {
+						isValid = false;
+					};
+				});
+
+				if (isValid) {
+					$shareBtn.removeClass("disabled");
+				} else {
+					$shareBtn.addClass("disabled");
+				}
+
+				return emailList
+			};
+
+			$shareBtn.on("click", function () {
+				if (!validateEmails($shareEmails.val())) {
+					return;
+				}
+
+				frappe.call({
+					method: "erpnext.crm.doctype.contract.contract.send_contract_email",
+					args: {
+						doc_name: $("#contract-terms").data('doc-name'),
+						email_recipients: $shareEmails.val()
+					},
+					freeze: true,
+					freeze_message: __("Sharing..."),
+					callback: function (r) {
+						if (!r.exc) {
+							frappe.msgprint(__("The contract was successfully shared."))
+						}
+					}
+				});
+			});
 
 			$agreeBtn.on("click", function () {
-
-				if ( !validateContractSigning() ) {
+				if (!validateContractSigning()) {
 					return;
 				}
 
@@ -53,7 +111,12 @@
 					}
 				})
 			});
-			$signeeName.on("change keyup", function() {
+
+			$shareEmails.on("change keyup", function () {
+				validateEmails($shareEmails.val());
+			});
+
+			$signeeName.on("change keyup", function () {
 				validateContractSigning();
 			});
 
@@ -77,32 +140,45 @@
 		<div class="row" style="margin-top: 1em;">
  		Please read the contract carefully before agreeing.
 		</div>
-
-		<div class="row" style="margin-top: 2em;">
-			<form class="col-sm-12" style="text-align: right;">
-				<div style="display: inline-block; text-align: left;">
-					<label for="contract-signee" style="display: block; font-size: 0.8em;">Your Full Name:</label>
-					<input id="contract-signee" class="required" type="text" required>
-				</div>
-				<button id="agree-contract" class="btn btn-primary btn-sm disabled">I Agree</button>
-			</form>
-		</div>
 	{% else %}
 		<div class="row" style="margin-top: 1em;">
 			This contract was signed by <strong>{{ doc.signee }}</strong> on <strong>{{ frappe.format_date(doc.signed_on) }}</strong>.
 		</div>
 	{% endif %}
 
+	<div class="row" style="margin-top: 2em;">
+		<form class="col-sm-6" style="text-align: left;">
+			<div style="display: inline-block">
+				<label for="share-email" style="display: block; font-size: 0.8em;">Email a copy to: (use commas to separate multiple IDs)</label>
+				<input id="share-email" type="email" placeholder="manager@x.com, artist@x.com" maxlength="512" multiple>
+			</div>
+			<button id="share-contract" class="btn btn-primary btn-sm disabled">Send</button>
+		</form>
+		{% if not doc.is_signed %}
+			<form class="col-sm-6" style="text-align: right;">
+				<div style="display: inline-block; text-align: left;">
+					<label for="contract-signee" style="display: block; font-size: 0.8em;">Your Full Name:</label>
+					<input id="contract-signee" class="required" type="text" required>
+				</div>
+				<button id="agree-contract" class="btn btn-primary btn-sm disabled">I Agree</button>
+			</form>
+		{% endif %}
+	</div>
+
 	<style>
-		#agree-contract.btn-primary {
+		#agree-contract.btn-primary, #share-contract.btn-primary {
 			font-size: 1.2em;
 			padding: 0.1em 1em;
 			margin: 0.9em 0em;
 		}
 
-		#agree-contract.btn-primary.disabled {
+		#agree-contract.btn-primary.disabled, #share-contract.btn-primary.disabled {
 			background-color: #292929;
 			border-color: #292929;
+		}
+
+		#share-email {
+			width: 100%;
 		}
 
 		#contract-signee.required {

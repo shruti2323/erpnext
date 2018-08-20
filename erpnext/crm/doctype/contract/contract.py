@@ -5,6 +5,7 @@
 from __future__ import unicode_literals
 
 import frappe
+from erpnext import get_default_company
 from frappe import _
 from frappe.model.document import Document
 from frappe.utils import getdate, now_datetime, nowdate
@@ -26,11 +27,13 @@ class Contract(Document):
 
 	def validate(self):
 		self.validate_dates()
+		self.remove_duplicate_users()
 		self.update_contract_status()
 		self.update_fulfilment_status()
 		self.set_contract_display()
 
 	def before_update_after_submit(self):
+		self.remove_duplicate_users()
 		self.update_contract_status()
 		self.update_fulfilment_status()
 		self.set_contract_display()
@@ -38,6 +41,20 @@ class Contract(Document):
 	def validate_dates(self):
 		if self.end_date and self.end_date < self.start_date:
 			frappe.throw(_("End Date cannot be before Start Date!"))
+
+	def remove_duplicate_users(self):
+		users = []
+		user_emails = []
+
+		for party_user in self.party_users:
+			if party_user.user not in user_emails:
+				user_emails.append(party_user.user)
+				users.append(party_user)
+
+		if self.party_users.sort() != users.sort():
+			self.party_users = users
+
+			frappe.msgprint(_("Removed duplicate users from the contract"))
 
 	def update_contract_status(self):
 		if self.is_signed:
@@ -80,7 +97,8 @@ def has_website_permission(doc, ptype, user, verbose=False):
 	with the logged in user/customer
 	"""
 
-	return doc.party_user == user
+	party_users = [party_user.user for party_user in doc.party_users]
+	return (user in party_users)
 
 
 def get_status(start_date, end_date):
@@ -110,7 +128,6 @@ def get_list_context(context=None):
 	list_context = get_list_context(context)
 	list_context.update({
 		'show_sidebar': True,
-		'show_search': True,
 		'no_breadcrumbs': True,
 		"row_template": "templates/includes/contract_row.html",
 		'get_list': get_contract_list,
@@ -121,20 +138,36 @@ def get_list_context(context=None):
 
 
 def get_contract_list(doctype, txt, filters, limit_start, limit_page_length=20, order_by=None):
-	from frappe.www.list import get_list
+	contracts = frappe.db.sql("""
+		SELECT
+			contract.name
+		FROM
+			`tabContract` contract
+				LEFT JOIN `tabContract User` contract_user ON contract_user.parent = contract.name
+		WHERE
+			contract.docstatus=1
+				AND contract_user.user=%s
+	""", frappe.session.user)
 
-	user = frappe.session.user
-	ignore_permissions = False
+	if contracts:
+		return frappe.db.sql("""
+			SELECT * FROM `tabContract` contract WHERE contract.name in %s
+			ORDER BY contract.modified desc limit {0}, {1}
+			""".format(limit_start, limit_page_length), [contracts], as_dict=1)
 
-	if not filters:
-		filters = []
 
-	if user != "Guest":
-		filters.append(("Contract", "party_user", "=", user))
-		filters.append(("Contract", "docstatus", "=", 1))
-		ignore_permissions = True
+@frappe.whitelist()
+def get_party_users(doctype, txt, searchfield, start, page_len, filters):
+	if filters.get("party_type") in ("Customer", "Supplier"):
+		party_links = frappe.get_all("Dynamic Link",
+										filters={"parenttype": "Contact",
+												"link_doctype": filters.get("party_type"),
+												"link_name": filters.get("party_name")},
+										fields=["parent"])
 
-	return get_list(doctype, txt, filters, limit_start, limit_page_length, ignore_permissions=ignore_permissions)
+		party_users = [frappe.db.get_value("Contact", link.parent, "user") for link in party_links]
+
+		return frappe.get_all("User", filters={"email": ["in", party_users]}, as_list=True)
 
 
 @frappe.whitelist()
@@ -149,3 +182,35 @@ def accept_contract_terms(dn, signee):
 	contract.run_method("set_contract_display")
 	contract.save()
 	frappe.db.commit()
+
+
+@frappe.whitelist()
+def send_contract_email(doc_name, email_recipients):
+	if not email_recipients:
+		return
+
+	user_name = " ".join(frappe.db.get_value("User", frappe.session.user, ["first_name", "last_name"]))
+
+	email_ids = email_recipients.split(",")
+	recipients = [email_id.strip() for email_id in email_ids]
+	company = get_default_company()
+
+	# TODO: Rework subject and message based on JHA's feedback
+	subject = "{0} shared a contract with you".format(user_name)
+	message = "Please find attached the contract for {0}.<br>- {1}".format(user_name, company)
+
+	print_format = frappe.db.get_value("Print Format", filters={"doc_type": "Contract"})
+	attachments = [frappe.attach_print("Contract", doc_name, print_format=print_format)]
+
+	frappe.sendmail(recipients=recipients, subject=subject, content=message,
+					attachments=attachments, doctype="Contract", name=doc_name)
+
+	comm = frappe.get_doc({
+		"doctype": "Communication",
+		"subject": "{0} shared the contract with the following recipients: {1}".format(frappe.session.user, ", ".join(recipients)),
+		"content": message,
+		"sent_or_received": "Sent",
+		"reference_doctype": "Contract",
+		"reference_name": doc_name
+	})
+	comm.insert(ignore_permissions=True)
