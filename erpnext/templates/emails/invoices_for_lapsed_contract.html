@@ -1,0 +1,38 @@
+<p>
+    {{ _("The following Sales Invoices have been created automatically based on lapsed Contracts") + ":" }}
+</p>
+{% for invoice in invoice_list -%}
+    <div style="margin-bottom: 30px;">
+        <h4 style="margin-bottom: 5px;">{{ frappe.utils.get_link_to_form("Sales Invoice", invoice.name) }}</h4>
+        <table style="width: 100%; border-spacing: 0; border-collapse: collapse;">
+            <thead>
+                <tr>
+                    <th style="border: 1px solid #d1d8dd; width: 25%; padding: 5px;">{{ _("Customer") }}</th>
+                    <th style="border: 1px solid #d1d8dd; width: 25%; padding: 5px;">{{ _("Contract Name") }}</th>
+                    <th style="border: 1px solid #d1d8dd; width: 25%; padding: 5px;">{{ _("Contract Date") }}</th>
+                    <th style="border: 1px solid #d1d8dd; width: 25%; padding: 5px;">{{ _("Amount Due") }}</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td style="border: 1px solid #d1d8dd; padding: 5px;">{{ invoice.customer }}</td>
+                    <td style="border: 1px solid #d1d8dd; padding: 5px;">{{ invoice.contract }}</td>
+                    <td style="border: 1px solid #d1d8dd; padding: 5px;">{{ frappe.db.get_value("Contract", invoice.contract, "start_date") }}</td>
+                    <td style="border: 1px solid #d1d8dd; padding: 5px;">{{ invoice.grand_total }}</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+{%- endfor %}
+<p>
+    You can click on the invoice numbers above to make any changes to the document.
+</p>
+<p>
+    Please note that the invoice(s) are saved as <strong>'Draft'</strong> on the system. You are still required to review these auto-generated invoices and <strong>submit</strong> or <strong>discard</strong> them.
+</p>
+<p>
+    If you need any help, please contact us.
+</p>
+<p>
+    Have a great day!
+</p>

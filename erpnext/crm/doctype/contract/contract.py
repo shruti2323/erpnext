@@ -7,6 +7,7 @@ from __future__ import unicode_literals
 import frappe
 from erpnext import get_default_company
 from frappe import _
+from frappe.core.doctype.role.role import get_emails_from_role
 from frappe.model.document import Document
 from frappe.utils import get_link_to_form, getdate, now_datetime, nowdate
 
@@ -129,8 +130,8 @@ def update_status_for_contracts():
 
 		current_statuses = (contract_doc.status, contract_doc.fulfilment_status)
 
-		contract_doc.update_contract_status()
 		contract_doc.update_fulfilment_status()
+		contract_doc.update_contract_status()
 
 		if current_statuses != (contract_doc.status, contract_doc.fulfilment_status):
 			contract_doc.save()
@@ -160,6 +161,7 @@ def create_invoice_for_lapsed_contracts():
 										"creation": ["between", [contract.start_date, contract.fulfilment_deadline]]},
 								fields=["name", "additional_discount_amount"])
 
+		# Dict comprehension to store orders and their respective discounts
 		order_discounts = {order.name: order.additional_discount_amount for order in orders}
 
 		if order_discounts:
@@ -206,21 +208,22 @@ def create_sales_invoice(contract, customer_name, order_discounts):
 
 def send_email_notification(invoice_list):
 	"""
-		Notify user about auto-creation of invoices
+		Notify 'Contract Managers' about auto-creation
+		of invoices for lapsed contracts
 	"""
 
 	if not invoice_list:
 		return
 
-	recipient = frappe.db.get_single_value("JH Audio Settings", "contract_manager")
+	recipients = get_emails_from_role("Contract Manager")
 
-	if recipient:
+	if recipients:
 		subject = "Sales Invoices Generated for Relapsed Contracts"
-		message = frappe.render_template("templates/lapsed_contracts.html", {
+		message = frappe.render_template("templates/emails/invoices_for_lapsed_contract.html", {
 			"invoice_list": invoice_list
 		})
 
-		frappe.sendmail(recipients=recipient, subject=subject, message=message)
+		frappe.sendmail(recipients=recipients, subject=subject, message=message)
 
 
 def update_contract_invoice_status():
