@@ -237,7 +237,7 @@ scheduler_events = {
 		"erpnext.manufacturing.doctype.bom_update_tool.bom_update_tool.update_latest_price_in_all_boms",
 		"erpnext.assets.doctype.asset.asset.update_maintenance_status",
 		"erpnext.crm.doctype.contract.contract.update_status_for_contracts"
-		"erpnext.crm.doctype.contract.contract.create_invoice_for_lapsed_contracts"
+		"erpnext.crm.doctype.contract.contract.create_invoices_for_lapsed_contracts"
 	]
 }
 

@@ -27,6 +27,10 @@ frappe.ui.form.on("Contract", {
 		frm.set_value("fulfilment_deadline", fulfilment_deadline);
 	},
 
+	is_signed: function (frm) {
+		frm.toggle_reqd("signee", frm.doc.is_signed);
+	},
+
 	requires_fulfilment: function (frm) {
 		frm.toggle_reqd("fulfilment_terms", frm.doc.requires_fulfilment);
 	},

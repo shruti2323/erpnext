@@ -9,7 +9,7 @@ from erpnext import get_default_company
 from frappe import _
 from frappe.core.doctype.role.role import get_emails_from_role
 from frappe.model.document import Document
-from frappe.utils import get_link_to_form, getdate, now_datetime, nowdate
+from frappe.utils import add_days, get_link_to_form, getdate, now_datetime, nowdate
 
 
 class Contract(Document):
@@ -57,16 +57,6 @@ class Contract(Document):
 
 			frappe.msgprint(_("Removed duplicate users from the contract"))
 
-	def update_contract_status(self):
-		if self.fulfilment_status and self.fulfilment_status == "Lapsed":
-			status = "Inactive"
-		elif self.is_signed:
-			status = get_status(self.start_date, self.end_date)
-		else:
-			status = "Unsigned"
-
-		self.status = status
-
 	def update_fulfilment_status(self):
 		fulfilment_status = ""
 
@@ -89,6 +79,16 @@ class Contract(Document):
 
 		self.fulfilment_status = fulfilment_status
 
+	def update_contract_status(self):
+		if self.fulfilment_status and self.fulfilment_status == "Lapsed":
+			status = "Inactive"
+		elif self.is_signed:
+			status = get_status(self.start_date, self.end_date)
+		else:
+			status = "Unsigned"
+
+		self.status = status
+
 	def set_contract_display(self):
 		self.contract_display = frappe.render_template(self.contract_terms, {"doc": self})
 
@@ -107,14 +107,20 @@ def has_website_permission(doc, ptype, user, verbose=False):
 
 
 def get_status(start_date, end_date):
-	if not end_date:
+	if not (start_date and end_date):
 		return "Active"
 
 	start_date = getdate(start_date)
-	end_date = getdate(end_date)
 	now_date = getdate(nowdate())
 
-	return "Active" if start_date < now_date < end_date else "Inactive"
+	if not end_date:
+		status = "Active" if start_date < now_date else "Inactive"
+	else:
+		end_date = getdate(end_date)
+
+		status = "Active" if start_date < now_date < end_date else "Inactive"
+
+	return status
 
 
 def update_status_for_contracts():
@@ -122,7 +128,7 @@ def update_status_for_contracts():
 		Daily scheduler event to verify and update contract status
 	"""
 
-	contracts = frappe.get_all("Contract", filters={"docstatus": 1})
+	contracts = frappe.get_all("Contract", filters={"docstatus": 1, "creation": ["between", [add_days(nowdate(), -60), nowdate()]]})
 
 	for contract in contracts:
 		contract_doc = frappe.get_doc("Contract", contract.name)
@@ -136,7 +142,7 @@ def update_status_for_contracts():
 			contract_doc.save()
 
 
-def create_invoice_for_lapsed_contracts():
+def create_invoices_for_lapsed_contracts():
 	"""
 		Daily scheduler event to create invoices for lapsed contracts.
 		The invoice will contain items with the amount equal to the
@@ -146,7 +152,7 @@ def create_invoice_for_lapsed_contracts():
 	filters = {
 		"docstatus": 1,
 		"party_type": "Customer",
-		"start_date": ["not in", [0, None, ""]],
+		"start_date": ["not in", [None, ""]],
 		"sales_invoice": None,
 		"fulfilment_status": "Lapsed"
 	}
@@ -190,8 +196,8 @@ def create_sales_invoice(contract, customer_name, order_discounts):
 		order_link = get_link_to_form("Sales Order", order)
 
 		sales_invoice.append("items", {
-			"item_name": "Contract Relapse Fee for {0}".format(order),
-			"description": "This fee is charged for the non-compliance of contract {0} based on order {1}".format(contract_link, order_link),
+			"item_name": "Contract lapse fee for {0}".format(order),
+			"description": "This fee is charged for the non-compliance of Contract {0} based on Sales Order {1}".format(contract_link, order_link),
 			"qty": 1,
 			"uom": "Nos",
 			"rate": discount,
@@ -218,7 +224,7 @@ def send_email_notification(invoice_list):
 	recipients = get_emails_from_role("Contract Manager")
 
 	if recipients:
-		subject = "Sales Invoices Generated for Relapsed Contracts"
+		subject = "Sales Invoices generated for lapsed Contracts"
 		message = frappe.render_template("templates/emails/invoices_for_lapsed_contract.html", {
 			"invoice_list": invoice_list
 		})
