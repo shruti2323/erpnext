@@ -7,8 +7,9 @@ from __future__ import unicode_literals
 import frappe
 from erpnext import get_default_company
 from frappe import _
+from frappe.core.doctype.role.role import get_emails_from_role
 from frappe.model.document import Document
-from frappe.utils import getdate, now_datetime, nowdate
+from frappe.utils import add_days, get_link_to_form, getdate, now_datetime, nowdate
 
 
 class Contract(Document):
@@ -28,14 +29,14 @@ class Contract(Document):
 	def validate(self):
 		self.validate_dates()
 		self.remove_duplicate_users()
-		self.update_contract_status()
 		self.update_fulfilment_status()
+		self.update_contract_status()
 		self.set_contract_display()
 
 	def before_update_after_submit(self):
 		self.remove_duplicate_users()
-		self.update_contract_status()
 		self.update_fulfilment_status()
+		self.update_contract_status()
 		self.set_contract_display()
 
 	def validate_dates(self):
@@ -56,14 +57,8 @@ class Contract(Document):
 
 			frappe.msgprint(_("Removed duplicate users from the contract"))
 
-	def update_contract_status(self):
-		if self.is_signed:
-			self.status = get_status(self.start_date, self.end_date)
-		else:
-			self.status = "Unsigned"
-
 	def update_fulfilment_status(self):
-		fulfilment_status = "N/A"
+		fulfilment_status = ""
 
 		if self.requires_fulfilment:
 			fulfilment_progress = self.get_fulfilment_progress()
@@ -84,6 +79,16 @@ class Contract(Document):
 
 		self.fulfilment_status = fulfilment_status
 
+	def update_contract_status(self):
+		if self.fulfilment_status and self.fulfilment_status == "Lapsed":
+			status = "Inactive"
+		elif self.is_signed:
+			status = get_status(self.start_date, self.end_date)
+		else:
+			status = "Unsigned"
+
+		self.status = status
+
 	def set_contract_display(self):
 		self.contract_display = frappe.render_template(self.contract_terms, {"doc": self})
 
@@ -93,8 +98,8 @@ class Contract(Document):
 
 def has_website_permission(doc, ptype, user, verbose=False):
 	"""
-	Returns `True` if the contract user matches
-	with the logged in user/customer
+		Returns `True` if any of the contract user(s)
+		matches the logged in user/customer
 	"""
 
 	party_users = [party_user.user for party_user in doc.party_users]
@@ -102,24 +107,147 @@ def has_website_permission(doc, ptype, user, verbose=False):
 
 
 def get_status(start_date, end_date):
-	if not end_date:
+	if not (start_date and end_date):
 		return "Active"
 
 	start_date = getdate(start_date)
-	end_date = getdate(end_date)
 	now_date = getdate(nowdate())
 
-	return "Active" if start_date < now_date < end_date else "Inactive"
+	if not end_date:
+		status = "Active" if start_date < now_date else "Inactive"
+	else:
+		end_date = getdate(end_date)
+
+		status = "Active" if start_date < now_date < end_date else "Inactive"
+
+	return status
 
 
 def update_status_for_contracts():
-	contracts = frappe.get_all("Contract", filters={"is_signed": True, "docstatus": 1}, fields=["name", "start_date", "end_date"])
+	"""
+		Daily scheduler event to verify and update contract status
+	"""
+
+	contracts = frappe.get_all("Contract", filters={"docstatus": 1, "creation": ["between", [add_days(nowdate(), -60), nowdate()]]})
 
 	for contract in contracts:
-		status = get_status(contract.get("start_date"),
-							contract.get("end_date"))
+		contract_doc = frappe.get_doc("Contract", contract.name)
 
-		frappe.db.set_value("Contract", contract.get("name"), "status", status)
+		current_statuses = (contract_doc.status, contract_doc.fulfilment_status)
+
+		contract_doc.update_fulfilment_status()
+		contract_doc.update_contract_status()
+
+		if current_statuses != (contract_doc.status, contract_doc.fulfilment_status):
+			contract_doc.save()
+
+
+def create_invoices_for_lapsed_contracts():
+	"""
+		Daily scheduler event to create invoices for lapsed contracts.
+		The invoice will contain items with the amount equal to the
+		discount applied for each placed order while the contract was active.
+	"""
+
+	filters = {
+		"docstatus": 1,
+		"party_type": "Customer",
+		"start_date": ["not in", [None, ""]],
+		"sales_invoice": None,
+		"fulfilment_status": "Lapsed"
+	}
+
+	contracts = frappe.get_all("Contract", filters=filters, fields=["name", "start_date", "party_name", "fulfilment_deadline"])
+
+	invoice_list = []
+	for contract in contracts:
+		orders = frappe.get_all("Sales Order",
+								filters={"customer": contract.party_name,
+										"creation": ["between", [contract.start_date, contract.fulfilment_deadline]]},
+								fields=["name", "additional_discount_amount"])
+
+		# Dict comprehension to store orders and their respective discounts
+		order_discounts = {order.name: order.additional_discount_amount for order in orders}
+
+		if order_discounts:
+			sales_invoice = create_sales_invoice(contract.name, contract.party_name, order_discounts)
+			invoice_list.append(sales_invoice)
+
+			frappe.db.set_value("Contract", contract.name, "sales_invoice", sales_invoice.name)
+			frappe.db.commit()
+
+	if invoice_list:
+		send_email_notification(invoice_list)
+
+
+def create_sales_invoice(contract, customer_name, order_discounts):
+	sales_invoice = frappe.new_doc("Sales Invoice")
+
+	sales_invoice.update({
+		"customer": customer_name,
+		"company": get_default_company(),
+		"contract": contract,
+		"exempt_from_sales_tax": 1
+	})
+
+	contract_link = get_link_to_form("Contract", contract)
+
+	for order, discount in order_discounts.items():
+		order_link = get_link_to_form("Sales Order", order)
+
+		sales_invoice.append("items", {
+			"item_name": "Contract lapse fee for {0}".format(order),
+			"description": "This fee is charged for the non-compliance of Contract {0} based on Sales Order {1}".format(contract_link, order_link),
+			"qty": 1,
+			"uom": "Nos",
+			"rate": discount,
+			"conversion_factor": 1,
+			# TODO: make income account configurable from the frontend
+			"income_account": frappe.db.get_value("Company", get_default_company(), "default_income_account")
+		})
+
+	sales_invoice.set_missing_values()
+	sales_invoice.insert()
+
+	return sales_invoice
+
+
+def send_email_notification(invoice_list):
+	"""
+		Notify 'Contract Managers' about auto-creation
+		of invoices for lapsed contracts
+	"""
+
+	if not invoice_list:
+		return
+
+	recipients = get_emails_from_role("Contract Manager")
+
+	if recipients:
+		subject = "Sales Invoices generated for lapsed Contracts"
+		message = frappe.render_template("templates/emails/invoices_for_lapsed_contract.html", {
+			"invoice_list": invoice_list
+		})
+
+		frappe.sendmail(recipients=recipients, subject=subject, message=message)
+
+
+def update_contract_invoice_status():
+	"""
+		Hourly scheduler event to update the sales invoice
+		status for a linked contract
+	"""
+
+	contracts = frappe.get_all("Contract",
+								filters={"sales_invoice": ["!=", None],
+										"docstatus": 1},
+								fields=["name", "sales_invoice", "sales_invoice_status"])
+
+	for contract in contracts:
+		sales_invoice_status = frappe.db.get_value("Sales Invoice", contract.sales_invoice, "status")
+
+		if sales_invoice_status != contract.sales_invoice_status:
+			frappe.db.set_value("Contract", contract.name, "sales_invoice_status", sales_invoice_status)
 
 
 def get_list_context(context=None):

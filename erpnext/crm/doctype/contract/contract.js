@@ -19,11 +19,16 @@ frappe.ui.form.on("Contract", {
 	},
 
 	start_date: function (frm) {
+		// TODO: make the periods configurable from the frontend
 		var end_date = frappe.datetime.add_days(frm.doc.start_date, 365);
 		frm.set_value("end_date", end_date);
 
 		var fulfilment_deadline = frappe.datetime.add_days(frm.doc.start_date, 60);
 		frm.set_value("fulfilment_deadline", fulfilment_deadline);
+	},
+
+	is_signed: function (frm) {
+		frm.toggle_reqd("signee", frm.doc.is_signed);
 	},
 
 	requires_fulfilment: function (frm) {
