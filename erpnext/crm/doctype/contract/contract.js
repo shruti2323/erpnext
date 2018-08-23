@@ -44,6 +44,7 @@ frappe.ui.form.on("Contract", {
 				$.each(tabletransfer.fulfilment_terms, function (index, row) {
 					d = frm.add_child("fulfilment_terms");
 					d.requirement = row.requirement;
+					d.social_account = row.social_account;
 					frm.refresh_field("fulfilment_terms");
 				});
 			});

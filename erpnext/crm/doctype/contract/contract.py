@@ -34,6 +34,9 @@ class Contract(Document):
 		self.update_contract_status()
 		self.set_contract_display()
 
+	def before_submit(self):
+		self.validate_required_terms()
+
 	def before_update_after_submit(self):
 		self.remove_duplicate_users()
 		self.update_fulfilment_status()
@@ -47,6 +50,12 @@ class Contract(Document):
 	def get_sales_partner(self):
 		if not self.sales_partner:
 			self.sales_partner = frappe.db.get_value(self.party_type, self.party_name, "default_sales_partner")
+
+	def validate_required_terms(self):
+		if not self.requires_fulfilment:
+			self.fulfilment_status = ""
+			self.fulfilment_deadline = None
+			self.fulfilment_terms = None
 
 	def remove_duplicate_users(self):
 		users = []
