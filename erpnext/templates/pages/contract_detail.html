@@ -76,9 +76,9 @@
 				}
 
 				frappe.call({
-					method: "erpnext.crm.doctype.contract.contract.send_contract_email",
+					method: "erpnext.crm.doctype.contract.contract.share_contract",
 					args: {
-						doc_name: $("#contract-terms").data('doc-name'),
+						contract_name: $("#contract-terms").data('doc-name'),
 						email_recipients: $shareEmails.val()
 					},
 					freeze: true,
