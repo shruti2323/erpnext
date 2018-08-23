@@ -310,13 +310,8 @@ def send_contract(contract, method):
 					"name": contract.name
 				}
 
-				# Add sales partner as BCC, by pulling their email either through a
-				# linked User record, or by matching a System User with the same name
 				if contract.sales_partner:
 					sales_partner_email = frappe.db.get_value("Sales Partner", contract.sales_partner, "user")
-
-					if not sales_partner_email:
-						sales_partner_email = frappe.db.get_value("User", filters={"full_name": contract.sales_partner, "user_type": "System User"})
 
 					if sales_partner_email:
 						contract_data.update({"bcc": [sales_partner_email]})
