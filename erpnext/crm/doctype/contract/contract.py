@@ -399,3 +399,17 @@ def share_contract(contract_name, email_recipients):
 		"reference_doctype": "Contract",
 		"reference_name": contract_name
 	}).insert(ignore_permissions=True)
+
+
+@frappe.whitelist()
+def update_fulfilment_details(contract_name, usernames, link_urls):
+	if not (usernames and link_urls):
+		return
+
+	contract = frappe.get_doc("Contract", contract_name)
+
+	for idx, term in enumerate(contract.fulfilment_terms):
+		term.username = usernames[idx]
+		term.post_url = link_urls[idx]
+
+	contract.save()
