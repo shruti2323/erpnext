@@ -4,6 +4,8 @@
 
 from __future__ import unicode_literals
 
+import json
+
 import frappe
 from erpnext import get_default_company
 from frappe import _
@@ -403,8 +405,8 @@ def share_contract(contract_name, email_recipients):
 
 @frappe.whitelist()
 def update_fulfilment_details(contract_name, usernames, link_urls):
-	if not (usernames and link_urls):
-		return
+	usernames = json.loads(usernames)
+	link_urls = json.loads(link_urls)
 
 	contract = frappe.get_doc("Contract", contract_name)
 
@@ -412,4 +414,4 @@ def update_fulfilment_details(contract_name, usernames, link_urls):
 		term.username = usernames[idx]
 		term.post_url = link_urls[idx]
 
-	contract.save()
+	contract.save(ignore_permissions=True)

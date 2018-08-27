@@ -164,9 +164,12 @@
 			});
 
 			$saveBtn.on("click", function () {
-				// TODO: get data from input fields
 				var userNameData = [];
 				var postUrlData = [];
+				for (i = 1; i < $("#fulfilment-terms tr").length; i++) {
+					userNameData.push($(`#input-username-idx-${i}`).val());
+					postUrlData.push($(`#input-fulfilment-idx-${i}`).val());
+				};
 
 				frappe.call({
 					method: "erpnext.crm.doctype.contract.contract.update_fulfilment_details",
@@ -177,7 +180,9 @@
 					},
 					freeze: true,
 					freeze_message: __("Updating..."),
-					callback: function (r) {}
+					callback: function (r) {
+						window.location.reload();
+					}
 				});
 
 				hideInputFields();
@@ -221,12 +226,12 @@
 						<td>
 							{% if term.social_account %}
 								<p id="p-username-{{ term.idx }}" class="p-username">{{ term.username if term.username else "" }}</p>
-								<input class="input-username hidden" type="text" value="" data-idx="{{ term.idx }}">
+								<input class="input-username hidden" id="input-username-idx-{{ term.idx }}" type="text" value="{{ term.username or ''}}">
 							{% endif %}
 						</td>
 						<td>
 							<p id="p-url-{{ term.idx }}" class="p-fulfilment-url">{{ term.post_url if term.post_url else "" }}</p>
-							<input class="input-fulfilment-url hidden" type="text" style="width:100%;" value="" data-idx="{{ term.idx }}">
+							<input class="input-fulfilment-url hidden" id="input-fulfilment-idx-{{ term.idx }}" type="text" style="width:100%;" value="{{ term.post_url or ''}}">
 						</td>
 					</tr>
 				{% endfor %}
