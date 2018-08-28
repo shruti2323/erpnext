@@ -4,6 +4,8 @@
 
 from __future__ import unicode_literals
 
+import json
+
 import frappe
 from erpnext import get_default_company
 from frappe import _
@@ -28,10 +30,14 @@ class Contract(Document):
 
 	def validate(self):
 		self.validate_dates()
+		self.get_sales_partner()
 		self.remove_duplicate_users()
 		self.update_fulfilment_status()
 		self.update_contract_status()
 		self.set_contract_display()
+
+	def before_submit(self):
+		self.validate_required_terms()
 
 	def before_update_after_submit(self):
 		self.remove_duplicate_users()
@@ -42,6 +48,16 @@ class Contract(Document):
 	def validate_dates(self):
 		if self.end_date and self.end_date < self.start_date:
 			frappe.throw(_("End Date cannot be before Start Date!"))
+
+	def get_sales_partner(self):
+		if not self.sales_partner:
+			self.sales_partner = frappe.db.get_value(self.party_type, self.party_name, "default_sales_partner")
+
+	def validate_required_terms(self):
+		if not self.requires_fulfilment:
+			self.fulfilment_status = ""
+			self.fulfilment_deadline = None
+			self.fulfilment_terms = None
 
 	def remove_duplicate_users(self):
 		users = []
@@ -284,6 +300,47 @@ def get_contract_list(doctype, txt, filters, limit_start, limit_page_length=20, 
 			""".format(limit_start, limit_page_length), [contracts], as_dict=1)
 
 
+def send_contract(contract, method):
+	if method == "on_submit":
+		recipients = [party_user.user for party_user in contract.party_users]
+
+		if recipients:
+			# TODO: Change to generic settings for pushing to ERPN
+			settings = frappe.get_single("JH Audio Settings")
+			subject = settings.contract_email_subject
+			message = settings.contract_email_message
+
+			if not (subject and message):
+				frappe.throw(_("Please enter a subject and message in JH Audio Settings to send contracts"))
+			else:
+				contract_data = {
+					"recipients": recipients,
+					"subject": subject,
+					"content": message,
+					"doctype": "Contract",
+					"name": contract.name
+				}
+
+				if contract.sales_partner:
+					sales_partner_email = frappe.db.get_value("Sales Partner", contract.sales_partner, "user")
+
+					if sales_partner_email:
+						contract_data.update({"bcc": [sales_partner_email]})
+
+				_send_contract(contract.name, contract_data)
+
+
+def _send_contract(contract_name, contract_data):
+	print_format = frappe.db.get_value("Print Format", filters={"doc_type": "Contract"})
+	attachments = [frappe.attach_print("Contract", contract_name, print_format=print_format)]
+
+	contract_data.update({
+		"attachments": attachments
+	})
+
+	frappe.sendmail(**contract_data)
+
+
 @frappe.whitelist()
 def get_party_users(doctype, txt, searchfield, start, page_len, filters):
 	if filters.get("party_type") in ("Customer", "Supplier"):
@@ -313,7 +370,7 @@ def accept_contract_terms(dn, signee):
 
 
 @frappe.whitelist()
-def send_contract_email(doc_name, email_recipients):
+def share_contract(contract_name, email_recipients):
 	if not email_recipients:
 		return
 
@@ -321,24 +378,40 @@ def send_contract_email(doc_name, email_recipients):
 
 	email_ids = email_recipients.split(",")
 	recipients = [email_id.strip() for email_id in email_ids]
-	company = get_default_company()
 
 	# TODO: Rework subject and message based on JHA's feedback
 	subject = "{0} shared a contract with you".format(user_name)
-	message = "Please find attached the contract for {0}.<br>- {1}".format(user_name, company)
+	message = "Please find attached the contract for {0}.<br>- {1}".format(user_name, get_default_company())
 
-	print_format = frappe.db.get_value("Print Format", filters={"doc_type": "Contract"})
-	attachments = [frappe.attach_print("Contract", doc_name, print_format=print_format)]
+	contract_data = {
+		"recipients": recipients,
+		"subject": subject,
+		"content": message,
+		"doctype": "Contract",
+		"name": contract_name
+	}
 
-	frappe.sendmail(recipients=recipients, subject=subject, content=message,
-					attachments=attachments, doctype="Contract", name=doc_name)
+	_send_contract(contract_name, contract_data)
 
-	comm = frappe.get_doc({
+	frappe.get_doc({
 		"doctype": "Communication",
 		"subject": "{0} shared the contract with the following recipients: {1}".format(frappe.session.user, ", ".join(recipients)),
 		"content": message,
 		"sent_or_received": "Sent",
 		"reference_doctype": "Contract",
-		"reference_name": doc_name
-	})
-	comm.insert(ignore_permissions=True)
+		"reference_name": contract_name
+	}).insert(ignore_permissions=True)
+
+
+@frappe.whitelist()
+def update_fulfilment_details(contract_name, usernames, link_urls):
+	usernames = json.loads(usernames)
+	link_urls = json.loads(link_urls)
+
+	contract = frappe.get_doc("Contract", contract_name)
+
+	for idx, term in enumerate(contract.fulfilment_terms):
+		term.username = usernames[idx]
+		term.post_url = link_urls[idx]
+
+	contract.save(ignore_permissions=True)

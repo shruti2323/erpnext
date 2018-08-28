@@ -13,11 +13,10 @@
 
 	<script>
 		frappe.ready(function () {
+			// Contract terms and signing
 			var $termsBox = $("#contract-terms");
-			var $agreeBtn = $("#agree-contract");
 			var $signeeName = $("#contract-signee");
-			var $shareBtn = $("#share-contract");
-			var $shareEmails = $("#share-email");
+			var $agreeBtn = $("#agree-contract");
 
 			function validateContractSigning() {
 				var isScrollVisible = $termsBox.get(0).scrollHeight > $termsBox.get(0).clientHeight;
@@ -33,6 +32,39 @@
 
 				return isValid;
 			};
+
+			$termsBox.bind("scroll", function (e) {
+				validateContractSigning();
+			});
+
+			$signeeName.on("change keyup", function () {
+				validateContractSigning();
+			});
+
+			$agreeBtn.on("click", function () {
+				if (!validateContractSigning()) {
+					return;
+				}
+
+				frappe.call({
+					method: "erpnext.crm.doctype.contract.contract.accept_contract_terms",
+					args: {
+						dn: $("#contract-terms").data('doc-name'),
+						signee: $('#contract-signee').val()
+					},
+					freeze: true,
+					freeze_message: __("Saving..."),
+					callback: function (r) {
+						if (!r.exe) {
+							window.location.reload();
+						}
+					}
+				})
+			});
+
+			// Contract sharing
+			var $shareEmails = $("#share-email");
+			var $shareBtn = $("#share-contract");
 
 			function validateEmails(emails) {
 				if (!emails) {
@@ -70,15 +102,19 @@
 				return emailList
 			};
 
+			$shareEmails.on("change keyup", function () {
+				validateEmails($shareEmails.val());
+			});
+
 			$shareBtn.on("click", function () {
 				if (!validateEmails($shareEmails.val())) {
 					return;
 				}
 
 				frappe.call({
-					method: "erpnext.crm.doctype.contract.contract.send_contract_email",
+					method: "erpnext.crm.doctype.contract.contract.share_contract",
 					args: {
-						doc_name: $("#contract-terms").data('doc-name'),
+						contract_name: $("#contract-terms").data('doc-name'),
 						email_recipients: $shareEmails.val()
 					},
 					freeze: true,
@@ -91,37 +127,69 @@
 				});
 			});
 
-			$agreeBtn.on("click", function () {
-				if (!validateContractSigning()) {
-					return;
-				}
+			// Fulfilment terms table
+			var $userNameP = $(".p-username");
+			var $userNameInput = $(".input-username");
+			var $postUrlP = $(".p-fulfilment-url");
+			var $postUrlInput = $(".input-fulfilment-url");
+
+			var $editBtn = $("#edit-details");
+			var $saveBtn = $("#save-details");
+			var $cancelBtn = $("#cancel-details");
+
+			function showInputFields() {
+				$userNameP.addClass("hidden");
+				$userNameInput.removeClass("hidden");
+				$postUrlP.addClass("hidden");
+				$postUrlInput.removeClass("hidden");
+
+				$cancelBtn.removeClass("hidden");
+				$saveBtn.removeClass("hidden");
+				$editBtn.addClass("hidden");
+			};
+
+			function hideInputFields() {
+				$userNameP.removeClass("hidden");
+				$userNameInput.addClass("hidden");
+				$postUrlP.removeClass("hidden");
+				$postUrlInput.addClass("hidden");
+
+				$cancelBtn.addClass("hidden");
+				$saveBtn.addClass("hidden");
+				$editBtn.removeClass("hidden");
+			};
+
+			$editBtn.on("click", function () {
+				showInputFields();
+			});
+
+			$saveBtn.on("click", function () {
+				var userNameData = [];
+				var postUrlData = [];
+				for (i = 1; i < $("#fulfilment-terms tr").length; i++) {
+					userNameData.push($(`#input-username-idx-${i}`).val());
+					postUrlData.push($(`#input-fulfilment-idx-${i}`).val());
+				};
 
 				frappe.call({
-					method: "erpnext.crm.doctype.contract.contract.accept_contract_terms",
+					method: "erpnext.crm.doctype.contract.contract.update_fulfilment_details",
 					args: {
-						dn: $("#contract-terms").data('doc-name'),
-						signee: $('#contract-signee').val()
+						contract_name: $("#contract-terms").data('doc-name'),
+						usernames: userNameData,
+						link_urls: postUrlData
 					},
 					freeze: true,
-					freeze_message: __("Saving..."),
+					freeze_message: __("Updating..."),
 					callback: function (r) {
-						if (!r.exe) {
-							window.location.reload();
-						}
+						window.location.reload();
 					}
-				})
+				});
+
+				hideInputFields();
 			});
 
-			$shareEmails.on("change keyup", function () {
-				validateEmails($shareEmails.val());
-			});
-
-			$signeeName.on("change keyup", function () {
-				validateContractSigning();
-			});
-
-			$termsBox.bind("scroll", function (e) {
-				validateContractSigning();
+			$cancelBtn.on("click", function () {
+				hideInputFields();
 			});
 		});
 	</script>
@@ -136,23 +204,63 @@
 		<p>{{ doc.contract_display }}</p>
 	</div>
 
-	{% if not doc.is_signed %}
-		<div class="row" style="margin-top: 1em;">
- 		Please read the contract carefully before agreeing.
-		</div>
-	{% else %}
-		<div class="row" style="margin-top: 1em;">
-			This contract was signed by <strong>{{ doc.signee }}</strong> on <strong>{{ frappe.format_date(doc.signed_on) }}</strong>.
-		</div>
+	{% if doc.fulfilment_terms %}
+		<table class="table table-bordered table-striped table-condensed" id="fulfilment-terms" data-doc-name="{{ doc.name }}">
+			<thead>
+				<tr>
+					<th width="5%">#</th>
+					<th width="5%">Fulfilled</th>
+					<th width="20%">Requirement</th>
+					<th width="10%">Social Account</th>
+					<th width="15%">Username</th>
+					<th width="45%">Relevant Link(s)</th>
+				</tr>
+			</thead>
+			<tbody>
+				{% for term in doc.fulfilment_terms %}
+					<tr>
+						<td>{{ term.idx }}</td>
+						<td>{{ "Yes" if term.fulfilled else "No" }}</td>
+						<td>{{ term.requirement }}</td>
+						<td>{{ term.social_account if term.social_account else "" }}</td>
+						<td>
+							{% if term.social_account %}
+								<p id="p-username-{{ term.idx }}" class="p-username">{{ term.username if term.username else "" }}</p>
+								<input class="input-username hidden" id="input-username-idx-{{ term.idx }}" type="text" value="{{ term.username or ''}}">
+							{% endif %}
+						</td>
+						<td>
+							<p id="p-url-{{ term.idx }}" class="p-fulfilment-url">{{ term.post_url if term.post_url else "" }}</p>
+							<input class="input-fulfilment-url hidden" id="input-fulfilment-idx-{{ term.idx }}" type="text" style="width:100%;" value="{{ term.post_url or ''}}">
+						</td>
+					</tr>
+				{% endfor %}
+			</tbody>
+		</table>
+		<button id="cancel-details" class="btn btn-primary btn-sm btn-portal hidden">Cancel</button>
+		<button id="save-details" class="btn btn-primary btn-sm btn-portal hidden">Save</button>
+		<button id="edit-details" class="btn btn-primary btn-sm btn-portal">Edit</button>
 	{% endif %}
 
+	<div class="row" style="margin-top: 1em;">
+		{% if not doc.is_signed %}
+			<strong>Please read the contract carefully before agreeing.</strong>
+		{% else %}
+			This contract was signed by <strong>{{ doc.signee }}</strong> on <strong>{{ frappe.format_date(doc.signed_on) }}</strong>.
+		{% endif %}
+
+		{% if doc.fulfilment_terms %}
+			You have until {{ frappe.utils.add_days(doc.fulfilment_deadline, -30) }} to complete the checklist.
+		{% endif %}
+	</div>
+
 	<div class="row" style="margin-top: 2em;">
-		<form class="col-sm-6" style="text-align: left;">
+		<form class="col-sm-6" style="text-align: left; padding-left: 0">
 			<div style="display: inline-block">
 				<label for="share-email" style="display: block; font-size: 0.8em;">Email a copy to: (use commas to separate multiple IDs)</label>
 				<input id="share-email" type="email" placeholder="manager@x.com, artist@x.com" maxlength="512" multiple>
 			</div>
-			<button id="share-contract" class="btn btn-primary btn-sm disabled">Send</button>
+			<button id="share-contract" class="btn btn-primary btn-sm btn-portal disabled">Send</button>
 		</form>
 		{% if not doc.is_signed %}
 			<form class="col-sm-6" style="text-align: right;">
@@ -160,19 +268,19 @@
 					<label for="contract-signee" style="display: block; font-size: 0.8em;">Your Full Name:</label>
 					<input id="contract-signee" class="required" type="text" required>
 				</div>
-				<button id="agree-contract" class="btn btn-primary btn-sm disabled">I Agree</button>
+				<button id="agree-contract" class="btn btn-primary btn-sm btn-portal disabled">I Agree</button>
 			</form>
 		{% endif %}
 	</div>
 
 	<style>
-		#agree-contract.btn-primary, #share-contract.btn-primary {
+		.btn-portal {
 			font-size: 1.2em;
 			padding: 0.1em 1em;
 			margin: 0.9em 0em;
 		}
 
-		#agree-contract.btn-primary.disabled, #share-contract.btn-primary.disabled {
+		.btn-portal.disabled {
 			background-color: #292929;
 			border-color: #292929;
 		}
@@ -193,10 +301,23 @@
 
 		#contract-terms {
 			overflow: auto;
-			height: 50vh;
+			height: 40vh;
 			width: auto;
 			border: 1px solid #c1c1c1;
 			padding: 1.5em;
+		}
+
+		#fulfilment-terms {
+			width: 100%;
+			border: 1px solid #c1c1c1;
+			padding: 1.5em;
+			margin-top: 2em;
+			margin-bottom: 0;
+		}
+
+		#save-details, #cancel-details, #edit-details {
+			float: right;
+			margin-left: 0.5em;
 		}
 
 		a.btn-default, button.btn-default {
