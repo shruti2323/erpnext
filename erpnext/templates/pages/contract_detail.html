@@ -244,7 +244,7 @@
 
 	<div class="row" style="margin-top: 1em;">
 		{% if not doc.is_signed %}
-			<strong>Please read the contract carefully before agreeing.</strong>
+			<strong>Please read the contract before signing it.</strong>
 		{% else %}
 			This contract was signed by <strong>{{ doc.signee }}</strong> on <strong>{{ frappe.format_date(doc.signed_on) }}</strong>.
 		{% endif %}
@@ -268,7 +268,9 @@
 					<label for="contract-signee" style="display: block; font-size: 0.8em;">Your Full Name:</label>
 					<input id="contract-signee" class="required" type="text" required>
 				</div>
-				<button id="agree-contract" class="btn btn-primary btn-sm btn-portal disabled">I Agree</button>
+				<div style="display: inline-block;" title="Please read the contract completely!">
+					<button id="agree-contract" class="btn btn-primary btn-sm btn-portal disabled">I Agree</button>
+				</div>
 			</form>
 		{% endif %}
 	</div>
