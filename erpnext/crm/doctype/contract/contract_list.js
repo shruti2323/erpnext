@@ -5,6 +5,8 @@ frappe.listview_settings['Contract'] = {
             return [__(doc.status), "red", "status,=," + doc.status];
         } else if (doc.status == "Active") {
             return [__(doc.status), "green", "status,=," + doc.status];
+        } else if (doc.status == "Unverified") {
+            return [__(doc.status), "orange", "status,=," + doc.status];
         } else if (doc.status == "Inactive") {
             return [__(doc.status), "darkgrey", "status,=," + doc.status];
         }

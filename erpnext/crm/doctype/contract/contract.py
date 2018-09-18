@@ -100,6 +100,13 @@ class Contract(Document):
 			status = "Inactive"
 		elif self.is_signed:
 			status = get_status(self.start_date, self.end_date)
+		elif self.requires_fulfilment:
+			for term in self.fulfilment_terms:
+				if term.post_url and not term.fulfilled:
+					status = "Unverified"
+					break
+			else:
+				status = "Unsigned"
 		else:
 			status = "Unsigned"
 
