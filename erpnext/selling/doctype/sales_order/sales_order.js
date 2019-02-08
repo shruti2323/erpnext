@@ -94,7 +94,7 @@ erpnext.selling.SalesOrderController = erpnext.selling.SellingController.extend(
 				}
 
 				// delivery note
-				if(flt(doc.per_delivered, 2) < 100 && ["Sales", "Shopping Cart"].indexOf(doc.order_type)!==-1 && allow_delivery) {
+				if(flt(doc.per_delivered, 2) < 100 && allow_delivery) {
 					this.frm.add_custom_button(__('Delivery'),
 						function() { me.make_delivery_note_based_on_delivery_date(); }, __("Make"));
 					this.frm.add_custom_button(__('Production Order'),
@@ -110,8 +110,7 @@ erpnext.selling.SalesOrderController = erpnext.selling.SellingController.extend(
 				}
 
 				// material request
-				if(!doc.order_type || ["Sales", "Shopping Cart"].indexOf(doc.order_type)!==-1
-					&& flt(doc.per_delivered, 2) < 100) {
+				if(!doc.order_type || flt(doc.per_delivered, 2) < 100) {
 					this.frm.add_custom_button(__('Material Request'),
 						function() { me.make_material_request() }, __("Make"));
 				}
