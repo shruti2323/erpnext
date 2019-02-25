@@ -12,7 +12,8 @@ def get_data():
 			'Subscription': 'reference_document',
 		},
 		'internal_links': {
-			'Sales Order': ['items', 'sales_order']
+			'Sales Order': ['items', 'sales_order'],
+			'Warranty Claim': ['items', 'warranty_claim']
 		},
 		'transactions': [
 			{
@@ -21,7 +22,7 @@ def get_data():
 			},
 			{
 				'label': _('Reference'),
-				'items': ['Timesheet', 'Delivery Note', 'Sales Order']
+				'items': ['Timesheet', 'Delivery Note', 'Sales Order', 'Warranty Claim']
 			},
 			{
 				'label': _('Returns'),

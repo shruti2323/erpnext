@@ -10,6 +10,7 @@ def get_data():
 		},
 		'internal_links': {
 			'Sales Order': ['items', 'against_sales_order'],
+			'Warranty Claim': ['items', 'warranty_claim']
 		},
 		'transactions': [
 			{
@@ -18,7 +19,7 @@ def get_data():
 			},
 			{
 				'label': _('Reference'),
-				'items': ['Sales Order', 'Quality Inspection']
+				'items': ['Sales Order', 'Quality Inspection', 'Warranty Claim']
 			},
 			{
 				'label': _('Returns'),

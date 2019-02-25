@@ -11,7 +11,8 @@ def get_data():
 			'Subscription': 'reference_document',
 		},
 		'internal_links': {
-			'Quotation': ['items', 'prevdoc_docname']
+			'Quotation': ['items', 'prevdoc_docname'],
+			'Warranty Claim': ['items', 'warranty_claim']
 		},
 		'transactions': [
 			{
@@ -32,7 +33,7 @@ def get_data():
 			},
 			{
 				'label': _('Reference'),
-				'items': ['Quotation', 'Subscription']
+				'items': ['Quotation', 'Subscription', 'Warranty Claim']
 			},
 			{
 				'label': _('Payment'),
