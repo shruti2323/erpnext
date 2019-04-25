@@ -31,20 +31,20 @@ def get_columns():
 			"width": 150
 		},
 		{
-			"label": _("Total Billable Hours"),
-			"fieldtype": "Int",
+			"label": _("Billable Hours"),
+			"fieldtype": "Float",
 			"fieldname": "total_billable_hours",
 			"width": 50
 		},
 		{
-			"label": _("Total Hours"),
-			"fieldtype": "Int",
+			"label": _("Working Hours"),
+			"fieldtype": "Float",
 			"fieldname": "total_hours",
 			"width": 50
 		},
 		{
 			"label": _("Amount"),
-			"fieldtype": "Int",
+			"fieldtype": "Currency",
 			"fieldname": "amount",
 			"width": 100
 		}
@@ -60,6 +60,7 @@ def get_data(filters):
 		total_amount = 0
 		entries_exists = False
 		timesheet_details = get_timesheet_details(filters, entries.name)
+
 		for activity in timesheet_details:
 			entries_exists = True
 			time_start = activity.from_time
@@ -67,10 +68,10 @@ def get_data(filters):
 			from_date = frappe.utils.get_datetime(filters.from_date)
 			to_date = frappe.utils.get_datetime(filters.to_date)
 
-			if time_start <= from_date and time_end <= to_date:
+			if time_start <= from_date and time_end >= from_date:
 				total_hours, total_billable_hours, total_amount = get_billable_and_total_hours(activity,
 					time_end, from_date, total_hours, total_billable_hours, total_amount)
-			elif time_start >= from_date and time_end >= to_date:
+			elif time_start <= to_date and time_end >= to_date:
 				total_hours, total_billable_hours, total_amount = get_billable_and_total_hours(activity,
 					to_date, time_start, total_hours, total_billable_hours, total_amount)
 			elif time_start >= from_date and time_end <= to_date:
@@ -85,17 +86,16 @@ def get_data(filters):
 			"total_hours": total_hours,
 			"amount": total_amount
 		}
-
 		if entries_exists:
 			data.append(row)
 			entries_exists = False
-
 	return data
 
 def get_records(filters):
 	record_filters = [
 			["start_date", "<=", filters.to_date],
-			["end_date", ">=", filters.from_date]
+			["end_date", ">=", filters.from_date],
+			["docstatus", "=", 1]
 		]
 
 	if "employee" in filters:

@@ -10,6 +10,7 @@ from frappe.model.mapper import get_mapped_doc
 from erpnext.controllers.selling_controller import SellingController
 from frappe.contacts.address_and_contact import load_address_and_contact
 from erpnext.accounts.party import set_taxes
+from frappe.email.inbox import link_communication_to_document
 
 sender_field = "email_id"
 
@@ -34,7 +35,6 @@ class Lead(SellingController):
 		})
 
 		self.set_status()
-		self.check_email_id_is_unique()
 
 		if self.email_id:
 			if not self.flags.ignore_email_validation:
@@ -68,16 +68,6 @@ class Lead(SellingController):
 			"description": ('Contact ' + cstr(self.lead_name)) + \
 				(self.contact_by and ('. By : ' + cstr(self.contact_by)) or '')
 		}, force)
-
-	def check_email_id_is_unique(self):
-		if self.email_id:
-			# validate email is unique
-			duplicate_leads = frappe.db.sql_list("""select name from tabLead
-				where email_id=%s and name!=%s""", (self.email_id, self.name))
-
-			if duplicate_leads:
-				frappe.throw(_("Email Address must be unique, already exists for {0}")
-					.format(comma_and(duplicate_leads)), frappe.DuplicateEntryError)
 
 	def on_trash(self):
 		frappe.db.sql("""update `tabIssue` set lead='' where lead=%s""",
@@ -185,7 +175,7 @@ def get_lead_details(lead, posting_date=None, company=None):
 	out.update({
 		"territory": lead.territory,
 		"customer_name": lead.company_name or lead.lead_name,
-		"contact_display": lead.lead_name,
+		"contact_display": " ".join(filter(None, [lead.salutation, lead.lead_name])),
 		"contact_email": lead.email_id,
 		"contact_mobile": lead.mobile_no,
 		"contact_phone": lead.phone,
@@ -199,3 +189,29 @@ def get_lead_details(lead, posting_date=None, company=None):
 		out['taxes_and_charges'] = taxes_and_charges
 
 	return out
+
+@frappe.whitelist()
+def make_lead_from_communication(communication, ignore_communication_links=False):
+	""" raise a issue from email """
+
+	doc = frappe.get_doc("Communication", communication)
+	lead_name = None
+	if doc.sender:
+		lead_name = frappe.db.get_value("Lead", {"email_id": doc.sender})
+	if not lead_name and doc.phone_no:
+		lead_name = frappe.db.get_value("Lead", {"mobile_no": doc.phone_no})
+	if not lead_name:
+		lead = frappe.get_doc({
+			"doctype": "Lead",
+			"lead_name": doc.sender_full_name,
+			"email_id": doc.sender,
+			"mobile_no": doc.phone_no
+		})
+		lead.flags.ignore_mandatory = True
+		lead.flags.ignore_permissions = True
+		lead.insert()
+
+		lead_name = lead.name
+
+	link_communication_to_document(doc, "Lead", lead_name, ignore_communication_links)
+	return lead_name

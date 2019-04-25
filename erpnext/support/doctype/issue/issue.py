@@ -10,6 +10,7 @@ from frappe.model.document import Document
 from frappe.model.mapper import get_mapped_doc
 from frappe.utils import now
 from frappe.utils.user import is_website_user
+from frappe.email.inbox import link_communication_to_document
 
 sender_field = "raised_by"
 
@@ -188,3 +189,21 @@ def make_task(source_name, target_doc=None):
 			"doctype": "Task"
 		}
 	}, target_doc)
+
+
+@frappe.whitelist()
+def make_issue_from_communication(communication, ignore_communication_links=False):
+	""" raise a issue from email """
+
+	doc = frappe.get_doc("Communication", communication)
+	issue = frappe.get_doc({
+		"doctype": "Issue",
+		"subject": doc.subject,
+		"communication_medium": doc.communication_medium,
+		"raised_by": doc.sender or "",
+		"raised_by_phone": doc.phone_no or ""
+	}).insert(ignore_permissions=True)
+
+	link_communication_to_document(doc, "Issue", issue.name, ignore_communication_links)
+
+	return issue.name

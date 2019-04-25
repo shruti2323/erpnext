@@ -2,11 +2,15 @@
 # For license information, please see license.txt
 
 from __future__ import unicode_literals
-import frappe
-from frappe import _, scrub
-from frappe.utils import getdate, flt, add_to_date, add_days
+
 from six import iteritems
+
+import frappe
 from erpnext.accounts.utils import get_fiscal_year
+from frappe import _, scrub
+from frappe.contacts.doctype.address.address import get_default_address
+from frappe.utils import add_days, add_to_date, flt, getdate
+
 
 def execute(filters=None):
 	return Analytics(filters).run()
@@ -23,16 +27,18 @@ class Analytics(object):
 		self.get_columns()
 		self.get_data()
 		self.get_chart_data()
-		return self.columns, self.data , None, self.chart
+
+		return self.columns, self.data, None, self.chart
 
 	def get_columns(self):
-		self.columns =[{
-				"label": _(self.filters.tree_type + " ID"),
-				"options": self.filters.tree_type,
-				"fieldname": "entity",
-				"fieldtype": "Link",
-				"width": 140
-			}]
+		self.columns = [{
+			"label": _(self.filters.tree_type + " ID"),
+			"options": self.filters.tree_type,
+			"fieldname": "entity",
+			"fieldtype": "Link",
+			"width": 140
+		}]
+
 		if self.filters.tree_type in ["Customer", "Supplier", "Item"]:
 			self.columns.append({
 				"label": _(self.filters.tree_type + " Name"),
@@ -40,6 +46,24 @@ class Analytics(object):
 				"fieldtype": "Data",
 				"width": 140
 			})
+
+			if self.filters.tree_type == "Customer":
+				self.columns.extend([
+					{
+						"label": _("City"),
+						"fieldname": "city",
+						"fieldtype": "Data",
+						"width": 140
+					},
+					{
+						"label": _("Sales Partner"),
+						"fieldname": "sales_partner",
+						"fieldtype": "Link",
+						"options": "Sales Partner",
+						"width": 140
+					}
+				])
+
 		for end_date in self.periodic_daterange:
 			period = self.get_period(end_date)
 			self.columns.append({
@@ -160,7 +184,7 @@ class Analytics(object):
 		self.get_groups()
 
 	def get_rows(self):
-		self.data=[]
+		self.data = []
 		self.get_periodic_data()
 
 		for entity, period_data in iteritems(self.entity_periodic_data):
@@ -168,6 +192,15 @@ class Analytics(object):
 				"entity": entity,
 				"entity_name": self.entity_names.get(entity)
 			}
+
+			if self.filters.tree_type == 'Customer':
+				address = get_default_address("Customer", entity)
+
+				row.update({
+					"city": frappe.db.get_value("Address", address, "city"),
+					"sales_partner": frappe.db.get_value("Customer", entity, "default_sales_partner")
+				})
+
 			total = 0
 			for end_date in self.periodic_daterange:
 				period = self.get_period(end_date)
