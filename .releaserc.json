@@ -1,5 +1,14 @@
 {
-    "branch" : "bloomstack-production",
-    "repositoryUrl" : "https://github.com/digithinkit/erpnext/",
-    "plugins" : ["@semantic-release/commit-analyzer", "@semantic-release/release-notes-generator", "@semantic-release/github"]
+    "branch": "bloomstack-production",
+    "repositoryUrl": "https://github.com/digithinkit/erpnext/",
+    "plugins": [
+        "@semantic-release/commit-analyzer",
+        "@semantic-release/release-notes-generator",
+        [
+            "@semantic-release/github",
+            {
+                "successComment": false
+            }
+        ]
+    ]
 }
