@@ -10,6 +10,7 @@ from frappe import _, _dict
 from erpnext.accounts.utils import get_account_currency
 from erpnext.accounts.report.financial_statements import get_cost_centers_with_children
 from six import iteritems
+from collections import OrderedDict
 
 def execute(filters=None):
 	if not filters:
@@ -128,9 +129,14 @@ def get_gl_entries(filters):
 
 	if filters.get("group_by") == _("Group by Voucher (Consolidated)"):
 		group_by_statement = "group by voucher_type, voucher_no, account, cost_center"
+
 		select_fields = """, sum(debit) as debit, sum(credit) as credit,
 			sum(debit_in_account_currency) as debit_in_account_currency,
 			sum(credit_in_account_currency) as  credit_in_account_currency"""
+
+	if filters.get("include_default_book_entries"):
+		filters['company_fb'] = frappe.db.get_value("Company",
+			filters.get("company"), 'default_finance_book')
 
 	gl_entries = frappe.db.sql(
 		"""
@@ -187,7 +193,10 @@ def get_conditions(filters):
 		conditions.append("project in %(project)s")
 
 	if filters.get("finance_book"):
-		conditions.append("ifnull(finance_book, '') in (%(finance_book)s, '')")
+		if filters.get("include_default_book_entries"):
+			conditions.append("finance_book in (%(finance_book)s, %(company_fb)s)")
+		else:
+			conditions.append("finance_book in (%(finance_book)s)")
 
 	from frappe.desk.reportview import build_match_conditions
 	match_conditions = build_match_conditions("GL Entry")
@@ -261,7 +270,7 @@ def group_by_field(group_by):
 		return 'voucher_no'
 
 def initialize_gle_map(gl_entries, filters):
-	gle_map = frappe._dict()
+	gle_map = OrderedDict()
 	group_by = group_by_field(filters.get('group_by'))
 
 	for gle in gl_entries:

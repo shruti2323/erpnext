@@ -68,13 +68,13 @@ class ReceivablePayableReport(object):
 
 		if self.filters.based_on_payment_terms:
 			columns.append({
-				"label": "Payment Term",
+				"label": _("Payment Term"),
 				"fieldname": "payment_term",
 				"fieldtype": "Data",
 				"width": 120
 			})
 			columns.append({
-				"label": "Invoice Grand Total",
+				"label": _("Invoice Grand Total"),
 				"fieldname": "invoice_grand_total",
 				"fieldtype": "Currency",
 				"options": "currency",
@@ -83,7 +83,7 @@ class ReceivablePayableReport(object):
 
 		for label in ("Invoiced Amount", "Paid Amount", credit_or_debit_note, "Outstanding Amount"):
 			columns.append({
-				"label": label,
+				"label": _(label),
 				"fieldname": frappe.scrub(label),
 				"fieldtype": "Currency",
 				"options": "currency",
@@ -539,6 +539,10 @@ class ReceivablePayableReport(object):
 				conditions.append("""party in (select name from tabSupplier
 					where supplier_group=%s)""")
 				values.append(self.filters.get("supplier_group"))
+
+			if self.filters.get("payment_terms_template"):
+				conditions.append("party in (select name from tabSupplier where payment_terms=%s)")
+				values.append(self.filters.get("payment_terms_template"))
 
 		accounts = [d.name for d in frappe.get_all("Account",
 			filters={"account_type": account_type, "company": self.filters.company})]

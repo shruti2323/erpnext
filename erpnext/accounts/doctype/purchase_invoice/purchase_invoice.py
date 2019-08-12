@@ -336,6 +336,7 @@ class PurchaseInvoice(BuyingController):
 
 		if not self.is_return:
 			self.update_against_document_in_jv()
+			self.update_billing_status_for_zero_amount_refdoc("Purchase Receipt")
 			self.update_billing_status_for_zero_amount_refdoc("Purchase Order")
 			self.update_billing_status_in_pr()
 
@@ -484,9 +485,13 @@ class PurchaseInvoice(BuyingController):
 							"credit": flt(item.rm_supp_cost)
 						}, warehouse_account[self.supplier_warehouse]["account_currency"]))
 				elif not item.is_fixed_asset or (item.is_fixed_asset and is_cwip_accounting_disabled()):
+
+					expense_account = (item.expense_account
+						if (not item.enable_deferred_expense or self.is_return) else item.deferred_expense_account)
+
 					gl_entries.append(
 						self.get_gl_dict({
-							"account": item.expense_account if not item.enable_deferred_expense else item.deferred_expense_account,
+							"account": expense_account,
 							"against": self.supplier,
 							"debit": flt(item.base_net_amount, item.precision("base_net_amount")),
 							"debit_in_account_currency": (flt(item.base_net_amount,
@@ -772,6 +777,7 @@ class PurchaseInvoice(BuyingController):
 			if frappe.db.get_single_value('Accounts Settings', 'unlink_payment_on_cancellation_of_invoice'):
 				unlink_ref_doc_from_payment_entries(self)
 
+			self.update_billing_status_for_zero_amount_refdoc("Purchase Receipt")
 			self.update_billing_status_for_zero_amount_refdoc("Purchase Order")
 			self.update_billing_status_in_pr()
 
