@@ -78,6 +78,7 @@ class SalesInvoice(SellingController):
 			self.so_dn_required()
 
 		self.validate_proj_cust()
+		self.validate_pos_return()
 		self.validate_with_previous_doc()
 		self.validate_uom_is_integer("stock_uom", "stock_qty")
 		self.validate_uom_is_integer("uom", "qty")
@@ -199,6 +200,16 @@ class SalesInvoice(SellingController):
 
 		if "Healthcare" in active_domains:
 			manage_invoice_submit_cancel(self, "on_submit")
+
+	def validate_pos_return(self):
+
+		if self.is_pos and self.is_return:
+			total_amount_in_payments = 0
+			for payment in self.payments:
+				total_amount_in_payments += payment.amount
+			invoice_total = self.rounded_total or self.grand_total
+			if total_amount_in_payments < invoice_total:
+				frappe.throw(_("Total payments amount can't be greater than {}".format(-invoice_total)))
 
 	def validate_pos_paid_amount(self):
 		if len(self.payments) == 0 and self.is_pos:
@@ -993,7 +1004,6 @@ class SalesInvoice(SellingController):
 		"""
 		self.set_serial_no_against_delivery_note()
 		self.validate_serial_against_delivery_note()
-		self.validate_serial_against_sales_invoice()
 
 	def set_serial_no_against_delivery_note(self):
 		for item in self.items:
@@ -1023,20 +1033,6 @@ class SalesInvoice(SellingController):
 			if item.serial_no and cint(item.qty) != len(si_serial_nos):
 				frappe.throw(_("Row {0}: {1} Serial numbers required for Item {2}. You have provided {3}.".format(
 					item.idx, item.qty, item.item_code, len(si_serial_nos))))
-
-	def validate_serial_against_sales_invoice(self):
-		""" check if serial number is already used in other sales invoice """
-		for item in self.items:
-			if not item.serial_no:
-				continue
-
-			for serial_no in item.serial_no.split("\n"):
-				sales_invoice = frappe.db.get_value("Serial No", serial_no, "sales_invoice")
-				if sales_invoice and self.name != sales_invoice:
-					sales_invoice_company = frappe.db.get_value("Sales Invoice", sales_invoice, "company")
-					if sales_invoice_company == self.company:
-						frappe.throw(_("Serial Number: {0} is already referenced in Sales Invoice: {1}"
-							.format(serial_no, sales_invoice)))
 
 	def update_project(self):
 		if self.project:
