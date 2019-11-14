@@ -92,6 +92,7 @@ class Issue(Document):
 
 		replicated_issue = deepcopy(self)
 		replicated_issue.subject = subject
+		replicated_issue.issue_split_from = self.name
 		frappe.get_doc(replicated_issue).insert()
 
 		# Replicate linked Communications
@@ -106,6 +107,14 @@ class Issue(Document):
 			doc = frappe.get_doc("Communication", communication.name)
 			doc.reference_name = replicated_issue.name
 			doc.save(ignore_permissions=True)
+
+		frappe.get_doc({
+			"doctype": "Comment",
+			"comment_type": "Info",
+			"reference_doctype": "Issue",
+			"reference_name": replicated_issue.name,
+			"content": " - Split the Issue from <a href='#Form/Issue/{0}'>{1}</a>".format(self.name, frappe.bold(self.name))
+		}).insert(ignore_permissions=True)
 
 		return replicated_issue.name
 

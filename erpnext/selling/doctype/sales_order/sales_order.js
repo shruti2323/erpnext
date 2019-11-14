@@ -10,7 +10,8 @@ frappe.ui.form.on("Sales Order", {
 			'Sales Invoice': 'Invoice',
 			'Material Request': 'Material Request',
 			'Purchase Order': 'Purchase Order',
-			'Project': 'Project'
+			'Project': 'Project',
+			'Payment Entry': "Payment"
 		}
 		frm.add_fetch('customer', 'tax_id', 'tax_id');
 
@@ -141,7 +142,7 @@ erpnext.selling.SalesOrderController = erpnext.selling.SellingController.extend(
 
 				// delivery note
 				if(flt(doc.per_delivered, 6) < 100 && allow_delivery) {
-					this.frm.add_custom_button(__('Delivery'),
+					this.frm.add_custom_button(__('Delivery Note'),
 						function() { me.make_delivery_note_based_on_delivery_date(); }, __("Make"));
 
 					if(["Sales", "Shopping Cart"].indexOf(doc.order_type)!==-1){
