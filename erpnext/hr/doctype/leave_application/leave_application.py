@@ -52,8 +52,10 @@ class LeaveApplication(Document):
 		self.notify_employee()
 		self.reload()
 
-	def on_cancel(self):
+	def before_cancel(self):
 		self.status = "Cancelled"
+
+	def on_cancel(self):
 		# notify leave applier about cancellation
 		self.notify_employee()
 		self.cancel_attendance()
@@ -74,6 +76,10 @@ class LeaveApplication(Document):
 						frappe.throw(_("{0} applicable after {1} working days").format(self.leave_type, leave_type.applicable_after))
 
 	def validate_dates(self):
+		if self.from_date and self.from_date < frappe.utils.today():
+			if "HR Manager" not in frappe.get_roles():
+				frappe.throw(_("Only HR Managers can create backdated leave applications"))
+
 		if self.from_date and self.to_date and (getdate(self.to_date) < getdate(self.from_date)):
 			frappe.throw(_("To date cannot be before from date"))
 
