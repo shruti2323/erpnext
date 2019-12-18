@@ -119,6 +119,14 @@ def upload():
 	from frappe.utils.csvutils import read_csv_content_from_uploaded_file
 	from frappe.modules import scrub
 
+	if getattr(frappe, "uploaded_file", None):
+		fname = frappe.uploaded_file
+	else:
+		fname = frappe.form_dict.filename
+
+	if fname and not fname.lower().endswith(".csv"):
+		frappe.throw(_('The file "{}" is not a valid CSV file'.format(fname)))
+
 	rows = read_csv_content_from_uploaded_file()
 	rows = list(filter(lambda x: x and any(x), rows))
 	if not rows:
