@@ -127,7 +127,7 @@ erpnext.EmployeeSelector = Class.extend({
 			<button class="btn btn-primary btn-mark-work-from-home btn-xs"></button>\
 			<button class="btn btn-warning btn-mark-half-day btn-xs"></button>\
 			<button class="btn btn-danger btn-mark-absent btn-xs"></button>\
-			</div>')
+			</div>');
 
 		employee_toolbar.find(".btn-add")
 			.html(__('Check all'))
@@ -226,7 +226,7 @@ erpnext.EmployeeSelector = Class.extend({
 			});
 
 
-			mark_employee_toolbar.find(".btn-mark-work-from-home")
+		mark_employee_toolbar.find(".btn-mark-work-from-home")
 			.html(__('Mark Work From Home'))
 			.on("click", function() {
 				var employee_work_from_home = [];
