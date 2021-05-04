@@ -21,8 +21,9 @@ class JobCard(Document):
 
 		if self.get('time_logs'):
 			for d in self.get('time_logs'):
-				if get_datetime(d.from_time) > get_datetime(d.to_time):
-					frappe.throw(_("Row {0}: From time must be less than to time").format(d.idx))
+				if d.from_time and d.to_time: 
+					if get_datetime(d.from_time) > get_datetime(d.to_time):
+						frappe.throw(_("Row {0}: From time must be less than to time").format(d.idx))
 
 				if not frappe.db.get_single_value("Projects Settings", "ignore_workstation_time_overlap"):
 					data = self.get_overlap_for(d)
