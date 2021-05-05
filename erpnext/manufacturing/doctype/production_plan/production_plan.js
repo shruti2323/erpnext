@@ -116,34 +116,19 @@ frappe.ui.form.on('Production Plan', {
 	},
 
 	make_material_request: function(frm) {
-
-		frappe.confirm(__("Do you want to submit the material request"),
-			function() {
-				frm.events.create_material_request(frm, 1);
-			},
-			function() {
-				frm.events.create_material_request(frm, 0);
-			}
-		);
+		frm.events.create_material_request(frm, 1);
 	},
 
 	create_material_request: function(frm, submit) {
 		frm.doc.submit_material_request = submit;
-		if(submit==1)
-		{
-			frappe.call({
-				method: "make_material_request",
-				freeze: true,
-				doc: frm.doc,
-				callback: function(r) {
-					frm.reload_doc();
-				}
-			});
-		}
-		else
-		{
-			frappe.msgprint("No material request created")
-		}
+		frappe.call({
+			method: "make_material_request",
+			freeze: true,
+			doc: frm.doc,
+			callback: function(r) {
+				frm.reload_doc();
+			}
+		});
 	},
 
 	get_sales_orders: function(frm) {
