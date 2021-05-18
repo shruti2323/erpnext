@@ -7,7 +7,6 @@
  "editable_grid": 1,
  "engine": "InnoDB",
  "field_order": [
-  "section_break_1",
   "disable",
   "apply_on",
   "items",
@@ -45,10 +44,6 @@
   "product_discount_slabs"
  ],
  "fields": [
-  {
-   "fieldname": "section_break_1",
-   "fieldtype": "Section Break"
-  },
   {
    "default": "Item Code",
    "fieldname": "apply_on",
@@ -271,7 +266,7 @@
    "options": "Promotional Scheme Product Discount"
   }
  ],
- "modified": "2021-05-17 09:16:37.990804",
+ "modified": "2021-05-18 12:54:53.356407",
  "modified_by": "Administrator",
  "module": "Accounts",
  "name": "Promotional Scheme",
