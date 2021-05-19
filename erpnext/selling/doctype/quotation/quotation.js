@@ -35,24 +35,6 @@ frappe.ui.form.on('Quotation', {
 		frm.trigger("set_dynamic_field_label");
 	},
 
-	requested_delivery_date: function(frm) {
-		let parsed_requested_delivery_date = Date.parse(frm.doc.requested_delivery_date);
-		let parsed_transaction_date = Date.parse(frm.doc.transaction_date);
-	
-		if (parsed_requested_delivery_date < parsed_transaction_date){
-			frappe.msgprint(__("Requested delivery date cannot be before transaction date"));
-		}
-	},
-
-	valid_till: function(frm) {
-		let parsed_valid_till = Date.parse(frm.doc.valid_till);
-		let parsed_transaction_date = Date.parse(frm.doc.transaction_date);
-	
-		if (parsed_valid_till < parsed_transaction_date){
-			frappe.msgprint(__("Valid till date cannot be before transaction date"));
-		}
-	},
-
 	quotation_to: function(frm) {
 		frm.trigger("set_label");
 		frm.trigger("toggle_reqd_lead_customer");
