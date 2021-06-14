@@ -1266,6 +1266,20 @@ class StockEntry(StockController):
 
 	def validate_batch(self):
 		if self.purpose in ["Material Transfer for Manufacture", "Manufacture", "Repack", "Send to Subcontractor"]:
+			# check the batch no for all items present in stock entry and make them mandatory if present for specific item
+			count = 0
+			new_list = []
+			MANDATE_MSG = 'Batch number is mandatory for Item at : <br><b>'
+			item_lists = self.get("items")
+   
+			while(count < len(item_lists)):
+				batch_number = item_lists[count].batch_no
+				if (batch_number == None):
+					row_id = 'Row '+str(item_lists[count].idx)
+					new_list.append(row_id)
+				count = count + 1
+			frappe.throw(MANDATE_MSG +', '.join(new_list))
+   
 			for item in self.get("items"):
 				if item.batch_no:
 					disabled = frappe.db.get_value("Batch", item.batch_no, "disabled")
