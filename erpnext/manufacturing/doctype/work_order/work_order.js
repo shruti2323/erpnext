@@ -66,6 +66,40 @@ frappe.ui.form.on("Work Order", {
 		erpnext.queries.setup_queries(frm, "Warehouse", function() {
 			return erpnext.queries.warehouse(frm.doc);
 		});
+		
+		// get meta information of doctype Work Order Operation
+		frappe.meta.docfield_map["Work Order Operation"].operation.formatter =
+			function (value, df, options, doc) {
+				if (!value) {
+					return '';
+				}
+				
+				// formatter to show the options maintained for entity in the link field
+				let label;
+				if (frappe.form.link_formatters[df.options]) {
+					label = frappe.form.link_formatters[df.options](value, doc);
+				} else {
+					label = value;
+				}
+
+				let color;
+				if (!doc.completed_qty) {
+					color = "red";
+				} else if (doc.completed_qty < frm.doc.qty) {
+					color = "orange";
+				} else if (doc.completed_qty == frm.doc.qty) {
+					color = "green";
+				}
+
+				const escaped_name = encodeURIComponent(value);
+
+				return repl('<a class="indicator %(color)s" href="#Form/%(doctype)s/%(name)s">%(label)s</a>', {
+					color: color,
+					doctype: df.options,
+					name: escaped_name,
+					label: label
+				});
+			};
 	},
 
 	onload: function(frm) {
