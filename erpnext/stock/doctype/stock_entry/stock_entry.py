@@ -692,18 +692,19 @@ class StockEntry(StockController):
 		self.make_sl_entries(sl_entries, self.amended_from and 'Yes' or 'No')
 
 	def validate_mandatory_batch_number(self):
-		# to validate the stock items batch number is present or not
+		"""validate the stock items batch number is present or not"""
 		items_without_batch_no = []
 		MANDATE_MSG = 'Batch number is mandatory for Item at : <br><b>'
-		item_list = self.get("items")
-		
+		item_list = self.get("items")		
+		# iterate through all row of stock entry item and check whether batch no for the item is present or not by querying to tabItem table
 		for index in range(len(item_list)):
-			item_code_list = self.items[index].item_code
+			item_code = self.items[index].item_code
 			item_lists_details = frappe.db.sql("""select name, item_name, has_batch_no, docstatus,
 			is_stock_item, has_variants, stock_uom, create_new_batch
-			from tabItem where name=%s""", item_code_list, as_dict=True)
+			from tabItem where name=%s""", item_code, as_dict=True)
 			batch_number = item_list[index].batch_no
-			if (batch_number == None and item_lists_details[0].has_batch_no ==1):
+			# validate the Has Batch No from Item doc was mark checked or not
+			if (not batch_number and item_lists_details[0].has_batch_no ==1):
 				row_id = 'Row '+str(item_list[index].idx)
 				items_without_batch_no.append(row_id)
 			
