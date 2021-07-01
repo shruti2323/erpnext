@@ -708,7 +708,7 @@ class StockEntry(StockController):
 				row_id = 'Row '+str(item_list[index].idx)
 				items_without_batch_no.append(row_id)
 			
-		if (items_without_batch_no):
+		if items_without_batch_no:
 			frappe.throw('Batch number is mandatory for Item at : <br><b>' + ', '.join(items_without_batch_no))
 
 	def update_batch_with_customer_provided_item(self):
