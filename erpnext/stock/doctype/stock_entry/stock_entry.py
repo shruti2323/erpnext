@@ -697,7 +697,7 @@ class StockEntry(StockController):
 		"""
 		items_without_batch_no = []
 
-		for idx, item in enumerate(self.get("items")):
+		for idx, item in enumerate(self.get("items"), start=1):
 			_item = frappe.get_doc("Item", item.item_code)
 			# validate the Has Batch No from Item doc was mark checked or not
 			if not item.batch_no and _item.has_batch_no:
