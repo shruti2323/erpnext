@@ -7,11 +7,13 @@ import frappe
 from erpnext import get_default_company
 from frappe import _
 from frappe.contacts.doctype.address.address import get_company_address
+import json
 
 TAX_ACCOUNT_HEAD = frappe.db.get_single_value("TaxJar Settings", "tax_account_head")
 SHIP_ACCOUNT_HEAD = frappe.db.get_single_value("TaxJar Settings", "shipping_account_head")
 TAXJAR_CREATE_TRANSACTIONS = frappe.db.get_single_value("TaxJar Settings", "taxjar_create_transactions")
 TAXJAR_CALCULATE_TAX = frappe.db.get_single_value("TaxJar Settings", "taxjar_calculate_tax")
+TAXJAR_ENABLED = frappe.db.get_single_value("TaxJar Settings", "enabled")
 SUPPORTED_COUNTRY_CODES = ["AT", "AU", "BE", "BG", "CA", "CY", "CZ", "DE", "DK", "EE", "ES", "FI",
 	"FR", "GB", "GR", "HR", "HU", "IE", "IT", "LT", "LU", "LV", "MT", "NL", "PL", "PT", "RO",
 	"SE", "SI", "SK", "US"]
@@ -19,6 +21,9 @@ SUPPORTED_COUNTRY_CODES = ["AT", "AU", "BE", "BG", "CA", "CY", "CZ", "DE", "DK",
 class AddressError(frappe.ValidationError): pass
 
 def get_client():
+	if not TAXJAR_ENABLED:
+		return
+
 	taxjar_settings = frappe.get_single("TaxJar Settings")
 
 	if not taxjar_settings.is_sandbox:
@@ -29,8 +34,11 @@ def get_client():
 		api_url = taxjar.SANDBOX_API_URL
 
 	if api_key and api_url:
-		return taxjar.Client(api_key=api_key, api_url=api_url)
-
+		client = taxjar.Client(api_key=api_key, api_url=api_url)
+		client.set_api_config('headers', {
+			'x-api-version': '2020-08-07'
+		})
+		return client
 
 def create_transaction(doc, method):
 	"""Create an order transaction in TaxJar"""
@@ -60,6 +68,7 @@ def create_transaction(doc, method):
 
 	try:
 		client.create_order(tax_dict)
+		create_taxjar_integration_request(doc, method)
 	except taxjar.exceptions.TaxJarResponseError as err:
 		error_msg = """There seems to be an error in Address<br><br>{0}""".format(sanitize_error_response(err))
 		frappe.throw(_(error_msg), AddressError, _("Address Error"))
@@ -79,6 +88,7 @@ def delete_transaction(doc, method):
 		return
 
 	client.delete_order(doc.name)
+	create_taxjar_integration_request(doc, method)
 
 
 def get_tax_data(doc):
@@ -112,7 +122,8 @@ def get_tax_data(doc):
 		'to_street': to_address.address_line1,
 		'to_state': to_shipping_state,
 		'shipping': shipping,
-		'amount': doc.net_total
+		'amount': doc.net_total,
+		'plugin': '[bloomstack]'
 	}
 
 	return tax_dict
@@ -145,7 +156,16 @@ def set_sales_tax(doc, method):
 		setattr(doc, "taxes", [tax for tax in doc.taxes if tax.account_head != TAX_ACCOUNT_HEAD])
 		return
 
-	tax_data = validate_tax_request(tax_dict)
+	tax_dict['nexus_address'] = [{
+		'id': doc.company_address,
+		'country': tax_dict.get("from_country"),
+		'zip': tax_dict.get("from_zip"),
+		'state': tax_dict.get("from_state"),
+		'city': tax_dict.get("from_city"),
+		'street': tax_dict.get("from_street")
+	}]
+
+	tax_data = validate_tax_request(tax_dict, doc, method)
 
 	if tax_data is not None:
 		if not tax_data.amount_to_collect:
@@ -172,7 +192,7 @@ def set_sales_tax(doc, method):
 			doc.run_method("calculate_taxes_and_totals")
 
 
-def validate_tax_request(tax_dict):
+def validate_tax_request(tax_dict, doc, method):
 	"""Return the sales tax that should be collected for a given order."""
 
 	client = get_client()
@@ -182,6 +202,7 @@ def validate_tax_request(tax_dict):
 
 	try:
 		tax_data = client.tax_for_order(tax_dict)
+		create_taxjar_integration_request(doc, method)
 	except taxjar.exceptions.TaxJarResponseError as err:
 		error_msg = """There seems to be an error in Address<br><br>{0}""".format(sanitize_error_response(err))
 		frappe.throw(_(error_msg), AddressError, _("Address Error"))
@@ -257,3 +278,26 @@ def sanitize_error_response(response):
 		response = response.replace(k, v)
 
 	return response
+
+def create_taxjar_integration_request(doc, method):
+	if method == 'validate':
+		doc_name = ""
+	else:
+		doc_name = doc.name
+
+	if method == 'on_cancel':
+		status = "Cancelled"
+	else:
+		status = "Completed"
+
+	data = json.dumps(doc.as_dict())
+	frappe.get_doc({
+		"doctype": "Integration Request",
+		"integration_type": "Host",
+		"integration_request_service": "TaxJar",
+		"status": status,
+		"reference_doctype": doc.doctype,
+		"reference_docname": doc_name,
+		"endpoint": method,
+		"data": data
+	}).save(ignore_permissions=True)
