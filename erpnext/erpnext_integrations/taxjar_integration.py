@@ -13,6 +13,7 @@ TAX_ACCOUNT_HEAD = frappe.db.get_single_value("TaxJar Settings", "tax_account_he
 SHIP_ACCOUNT_HEAD = frappe.db.get_single_value("TaxJar Settings", "shipping_account_head")
 TAXJAR_CREATE_TRANSACTIONS = frappe.db.get_single_value("TaxJar Settings", "taxjar_create_transactions")
 TAXJAR_CALCULATE_TAX = frappe.db.get_single_value("TaxJar Settings", "taxjar_calculate_tax")
+TAXJAR_ENABLED = frappe.db.get_single_value("TaxJar Settings", "enabled")
 SUPPORTED_COUNTRY_CODES = ["AT", "AU", "BE", "BG", "CA", "CY", "CZ", "DE", "DK", "EE", "ES", "FI",
 	"FR", "GB", "GR", "HR", "HU", "IE", "IT", "LT", "LU", "LV", "MT", "NL", "PL", "PT", "RO",
 	"SE", "SI", "SK", "US"]
@@ -20,6 +21,9 @@ SUPPORTED_COUNTRY_CODES = ["AT", "AU", "BE", "BG", "CA", "CY", "CZ", "DE", "DK",
 class AddressError(frappe.ValidationError): pass
 
 def get_client():
+	if not TAXJAR_ENABLED:
+		return
+
 	taxjar_settings = frappe.get_single("TaxJar Settings")
 
 	if not taxjar_settings.is_sandbox:
@@ -38,6 +42,7 @@ def get_client():
 
 def create_transaction(doc, method):
 	"""Create an order transaction in TaxJar"""
+
 	if not TAXJAR_CREATE_TRANSACTIONS:
 		return
 
