@@ -156,6 +156,15 @@ def set_sales_tax(doc, method):
 		setattr(doc, "taxes", [tax for tax in doc.taxes if tax.account_head != TAX_ACCOUNT_HEAD])
 		return
 
+	tax_dict['nexus_address'] = [{
+		'id': doc.company_address,
+		'country': tax_dict.get("from_country"),
+		'zip': tax_dict.get("from_zip"),
+		'state': tax_dict.get("from_state"),
+		'city': tax_dict.get("from_city"),
+		'street': tax_dict.get("from_street")
+	}]
+
 	tax_data = validate_tax_request(tax_dict, doc, method)
 
 	if tax_data is not None:
