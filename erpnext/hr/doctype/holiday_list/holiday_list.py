@@ -4,7 +4,7 @@
 from __future__ import unicode_literals
 import frappe
 import json
-from frappe.utils import cint, getdate, formatdate, today
+from frappe.utils import cint, getdate, formatdate, today, add_days, get_date_str, add_to_date
 from frappe import throw, _
 from frappe.model.document import Document
 
@@ -24,6 +24,7 @@ class HolidayList(Document):
 			ch.description = self.weekly_off
 			ch.holiday_date = d
 			ch.idx = last_idx + i + 1
+			ch.is_weekly_off = 1
 
 	def validate_values(self):
 		if not self.weekly_off:
@@ -63,6 +64,44 @@ class HolidayList(Document):
 		self.set('holidays', [])
 
 @frappe.whitelist()
+def create_events(holiday_list):
+	def create_holiday_event(holiday, holiday_list):
+		frappe.get_doc({
+			"doctype": "Event",
+			"subject": "Holiday " + add_to_date(holiday.holiday_date, as_string=True),
+			"starts_on": holiday.holiday_date,
+			"event_category": "Holiday",
+			"holiday_list": holiday_list,
+			"event_type": "Public",
+			"all_day":1
+		}).insert(ignore_permissions=True)
+
+	doc = frappe.get_doc("Holiday List", holiday_list)
+	calendar_events = frappe.get_all("Event", filters={"holiday_list": doc.name}, fields=["name", "starts_on"])
+	if not calendar_events:
+		for holiday in doc.holidays:
+			if holiday.is_weekly_off:
+				continue
+
+			create_holiday_event(holiday, doc.name)
+	else:
+		holidays = [frappe.utils.get_datetime_str(holiday.holiday_date) for holiday in doc.holidays if not holiday.is_weekly_off]
+		starts_on = []
+
+		for event in calendar_events:
+			starts_on.append(frappe.utils.get_datetime_str(event.starts_on))
+			if not frappe.utils.get_datetime_str(event.starts_on) in holidays:
+				frappe.delete_doc("Event", event.name)
+
+		for holiday in doc.holidays:
+			if holiday.is_weekly_off or frappe.utils.get_datetime_str(holiday.holiday_date) in starts_on:
+				continue
+
+			create_holiday_event(holiday, doc.name)
+
+	return True
+
+@frappe.whitelist()
 def get_events(start, end, filters=None):
 	"""Returns events for Gantt / Calendar view rendering.
 
@@ -90,7 +129,52 @@ def is_holiday(holiday_list, date=today()):
 	"""Returns true if the given date is a holiday in the given holiday list
 	"""
 	if holiday_list:
-		return bool(frappe.get_all('Holiday List',
-			dict(name=holiday_list, holiday_date=date)))
+		return bool(frappe.get_all('Holiday List',dict(name=holiday_list, holiday_date=date)))
 	else:
 		return False
+
+def send_holiday_notification():
+	"""Sends an email for list of holidays falling in 7 days from today
+	"""
+	# holidays is a list of holidays which fall in 7 days from today
+	today_date = today()
+	holiday_lists = frappe.get_all('Holiday List', filters={"enabled" : 1}, fields=["name", "send_reminders_to", "notification_message"])
+
+	for holiday_list in holiday_lists:
+		end_date = get_date_str(add_days(today(), 7))
+		holidays = frappe.get_all('Holiday', filters={"parent": holiday_list.name, "holiday_date": ["BETWEEN", [today_date, end_date]]}, fields=["holiday_date", "description"])
+
+		if holidays:
+			# Forming a new String to make a table with all the Holidays
+			_holiday = ""
+			for holiday in holidays:
+				_holiday += """
+					<tr>
+						<td>{0}</td>
+						<td>{1}</td>
+						<td>{2}</td>
+					</tr>
+				""".format(formatdate(holiday.holiday_date), frappe.utils.get_weekday(holiday.holiday_date), holiday.description)
+
+			holiday_table = """
+				<table>
+					<thead>
+						<tr>
+							<th>Date</th>
+							<th>Day</th>
+							<th>Description</th>
+						</tr>
+					</thead>
+					<tbody>
+						{0}
+					</tbody>
+				</table>
+			""".format(_holiday)
+
+			recipients = [d.email for d in frappe.get_all("Email Group Member",filters={"email_group": holiday_list.send_reminders_to}, fields=["email"])]
+			message = holiday_list.notification_message + '<br>' + holiday_table
+			frappe.sendmail(
+				recipients=recipients,
+				subject="Holiday Notification",
+				message=message
+			)

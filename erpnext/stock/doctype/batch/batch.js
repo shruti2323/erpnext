@@ -15,7 +15,7 @@ frappe.ui.form.on('Batch', {
 		frm.make_methods = {
 			'Sales Order': () => frm.trigger("select_customer_and_create_sales_order"),
 			'Package Tag': () => frappe.model.open_mapped_doc({
-				method: "erpnext.compliance.doctype.package_tag.package_tag.make_package_tag_from_batch",
+				method: "erpnext.stock.doctype.package_tag.package_tag.make_package_tag_from_batch",
 				frm: frm
 			}),
 			'Material Request': () => frappe.model.open_mapped_doc({
@@ -115,10 +115,23 @@ frappe.ui.form.on('Batch', {
 						var $btn = $(this);
 						const fields = [
 							{
+								fieldname: 'qty',
+								label: __('Qty To Move'),
+								fieldtype: 'Float',
+								default: $btn.attr('data-qty')
+							},
+							{
 								fieldname: 'to_warehouse',
 								label: __('To Warehouse'),
 								fieldtype: 'Link',
-								options: 'Warehouse'
+								options: 'Warehouse',
+								get_query: () => {
+									return {
+										filters: {
+											"is_group": 0
+										}
+									}
+								}
 							}
 						];
 
@@ -130,7 +143,7 @@ frappe.ui.form.on('Batch', {
 									args: {
 										item_code: frm.doc.item,
 										batch_no: frm.doc.name,
-										qty: $btn.attr('data-qty'),
+										qty: data.qty,
 										from_warehouse: $btn.attr('data-warehouse'),
 										to_warehouse: data.to_warehouse,
 										source_document: frm.doc.reference_name,

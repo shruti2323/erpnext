@@ -13,7 +13,7 @@ from frappe.utils import floor, flt, today, cint, unique
 from frappe.model.mapper import get_mapped_doc, map_child_doc
 from erpnext.stock.get_item_details import get_conversion_factor
 from erpnext.selling.doctype.sales_order.sales_order import make_delivery_note as create_delivery_note_from_sales_order
-from erpnext.compliance.doctype.package_tag.package_tag import get_package_tag_qty
+from erpnext.stock.doctype.package_tag.package_tag import get_package_tag_qty
 # TODO: Prioritize SO or WO group warehouse
 
 class PickList(Document):
@@ -249,6 +249,8 @@ class PickList(Document):
 					stock_entry = update_stock_entry_items_for_source(location, stock_entry)
 				if location.package_tag:
 					stock_entry = update_stock_entry_items_for_target(location, stock_entry)
+				else:
+					stock_entry = update_stock_entry_items(location, stock_entry)
 			stock_entry.set_stock_entry_type()
 			stock_entry.set_incoming_rate()
 			stock_entry.set_actual_qty()
@@ -635,3 +637,13 @@ def update_common_item_properties(item, location):
 	item.serial_no = location.serial_no
 	item.batch_no = location.batch_no
 	item.material_request_item = location.material_request_item
+
+
+def update_stock_entry_items(location, stock_entry):
+	"""Append Item Row in Stock Entry !"""
+	item = frappe._dict()
+	update_common_item_properties(item, location)
+	if location.warehouse:
+		item.s_warehouse = location.warehouse
+	stock_entry.append('items', item)
+	return stock_entry
