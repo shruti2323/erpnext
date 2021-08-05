@@ -7,7 +7,6 @@ import frappe
 from erpnext import get_default_company
 from frappe import _
 from frappe.contacts.doctype.address.address import get_company_address
-import json
 
 TAX_ACCOUNT_HEAD = frappe.db.get_single_value("TaxJar Settings", "tax_account_head")
 SHIP_ACCOUNT_HEAD = frappe.db.get_single_value("TaxJar Settings", "shipping_account_head")
@@ -68,7 +67,6 @@ def create_transaction(doc, method):
 
 	try:
 		client.create_order(tax_dict)
-		create_taxjar_integration_request(doc, method)
 	except taxjar.exceptions.TaxJarResponseError as err:
 		error_msg = """There seems to be an error in Address<br><br>{0}""".format(sanitize_error_response(err))
 		frappe.throw(_(error_msg), AddressError, _("Address Error"))
@@ -88,7 +86,6 @@ def delete_transaction(doc, method):
 		return
 
 	client.delete_order(doc.name)
-	create_taxjar_integration_request(doc, method)
 
 
 def get_tax_data(doc):
@@ -165,7 +162,7 @@ def set_sales_tax(doc, method):
 		'street': tax_dict.get("from_street")
 	}]
 
-	tax_data = validate_tax_request(tax_dict, doc, method)
+	tax_data = validate_tax_request(tax_dict)
 
 	if tax_data is not None:
 		if not tax_data.amount_to_collect:
@@ -192,7 +189,7 @@ def set_sales_tax(doc, method):
 			doc.run_method("calculate_taxes_and_totals")
 
 
-def validate_tax_request(tax_dict, doc, method):
+def validate_tax_request(tax_dict):
 	"""Return the sales tax that should be collected for a given order."""
 
 	client = get_client()
@@ -202,7 +199,6 @@ def validate_tax_request(tax_dict, doc, method):
 
 	try:
 		tax_data = client.tax_for_order(tax_dict)
-		create_taxjar_integration_request(doc, method)
 	except taxjar.exceptions.TaxJarResponseError as err:
 		error_msg = """There seems to be an error in Address<br><br>{0}""".format(sanitize_error_response(err))
 		frappe.throw(_(error_msg), AddressError, _("Address Error"))
@@ -279,25 +275,3 @@ def sanitize_error_response(response):
 
 	return response
 
-def create_taxjar_integration_request(doc, method):
-	if method == 'validate':
-		doc_name = ""
-	else:
-		doc_name = doc.name
-
-	if method == 'on_cancel':
-		status = "Cancelled"
-	else:
-		status = "Completed"
-
-	data = json.dumps(doc.as_dict())
-	frappe.get_doc({
-		"doctype": "Integration Request",
-		"integration_type": "Host",
-		"integration_request_service": "TaxJar",
-		"status": status,
-		"reference_doctype": doc.doctype,
-		"reference_docname": doc_name,
-		"endpoint": method,
-		"data": data
-	}).save(ignore_permissions=True)
