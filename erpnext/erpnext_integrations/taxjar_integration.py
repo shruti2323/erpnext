@@ -133,9 +133,14 @@ def set_sales_tax(doc, method):
 	if not doc.items:
 		return
 
+	# if doctype is Quotation and it is created for lead set sales_tax_exempted to zero
+	if doc.doctype == "Quotation" and doc.quotation_to == "Lead":
+		sales_tax_exempted = hasattr(doc, "exempt_from_sales_tax") and doc.exempt_from_sales_tax \
+			or frappe.db.has_column("Lead", "exempt_from_sales_tax") and frappe.db.get_value("Lead", doc.party_name, "exempt_from_sales_tax")
 	# if the party is exempt from sales tax, then set all tax account heads to zero
-	sales_tax_exempted = hasattr(doc, "exempt_from_sales_tax") and doc.exempt_from_sales_tax \
-		or frappe.db.has_column("Customer", "exempt_from_sales_tax") and frappe.db.get_value("Customer", doc.customer, "exempt_from_sales_tax")
+	else:
+		sales_tax_exempted = hasattr(doc, "exempt_from_sales_tax") and doc.exempt_from_sales_tax \
+			or frappe.db.has_column("Customer", "exempt_from_sales_tax") and frappe.db.get_value("Customer", doc.customer, "exempt_from_sales_tax")
 
 	if sales_tax_exempted:
 		for tax in doc.taxes:
