@@ -5,6 +5,7 @@
  "editable_grid": 1,
  "engine": "InnoDB",
  "field_order": [
+  "enabled",
   "is_sandbox",
   "taxjar_calculate_tax",
   "taxjar_create_transactions",
@@ -21,6 +22,7 @@
  ],
  "fields": [
   {
+   "depends_on": "enabled",
    "fieldname": "credentials",
    "fieldtype": "Section Break",
    "label": "Credentials"
@@ -29,16 +31,18 @@
    "fieldname": "api_key",
    "fieldtype": "Password",
    "in_list_view": 1,
-   "label": "Live API Key",
+   "label": "Live API Token",
    "reqd": 1
   },
   {
+   "depends_on": "enabled",
    "fieldname": "configuration",
    "fieldtype": "Section Break",
    "label": "Configuration"
   },
   {
    "default": "0",
+   "depends_on": "enabled",
    "fieldname": "is_sandbox",
    "fieldtype": "Check",
    "label": "Sandbox Mode"
@@ -46,7 +50,7 @@
   {
    "fieldname": "sandbox_api_key",
    "fieldtype": "Password",
-   "label": "Sandbox API Key"
+   "label": "Sandbox API Token"
   },
   {
    "fieldname": "configuration_cb",
@@ -54,12 +58,14 @@
   },
   {
    "default": "0",
+   "depends_on": "enabled",
    "fieldname": "taxjar_create_transactions",
    "fieldtype": "Check",
    "label": "Create TaxJar Transaction"
   },
   {
    "default": "0",
+   "depends_on": "enabled",
    "fieldname": "taxjar_calculate_tax",
    "fieldtype": "Check",
    "label": "Enable Tax Calculation"
@@ -93,10 +99,16 @@
    "fieldtype": "Table",
    "label": "Company",
    "options": "TaxJar Company"
+  },
+  {
+   "default": "0",
+   "fieldname": "enabled",
+   "fieldtype": "Check",
+   "label": "Enabled"
   }
  ],
  "issingle": 1,
- "modified": "2021-08-10 20:36:23.435282",
+ "modified": "2021-07-26 07:35:19.655979",
  "modified_by": "Administrator",
  "module": "ERPNext Integrations",
  "name": "TaxJar Settings",
