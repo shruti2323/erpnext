@@ -110,7 +110,7 @@ class Project(Document):
 			if (self.percent_complete_method == "Task Completion" and total > 0) or (
 				not self.percent_complete_method and total > 0):
 				completed = frappe.db.sql("""select count(name) from tabTask where
-					project=%s and status in ('Cancelled', 'Completed')""", self.name)[0][0]
+					project=%s and status in ('Closed', 'Completed')""", self.name)[0][0]
 				self.percent_complete = flt(flt(completed) / total * 100, 2)
 
 			if (self.percent_complete_method == "Task Progress" and total > 0):
@@ -558,3 +558,9 @@ def set_project_status(project, status):
 
 	project.status = status
 	project.save()
+
+@frappe.whitelist()
+def update_task_projects(ref_dt, ref_dn, freeze):
+	task_projects = frappe.get_all("Task Project", filters={frappe.scrub(ref_dt): ref_dn})
+	for project in task_projects:
+		frappe.db.set_value("Task Project", project.name, "freeze", freeze)

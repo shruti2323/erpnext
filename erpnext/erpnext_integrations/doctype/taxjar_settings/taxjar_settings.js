@@ -28,3 +28,8 @@ frappe.ui.form.on('TaxJar Settings', {
 	}
 
 });
+frappe.ui.form.on("TaxJar Settings", "refresh", function(frm) {
+	frm.add_custom_button("Sign Up For Taxjar", function() {
+		window.open('https://app.taxjar.com/api_sign_up');
+	});
+});
