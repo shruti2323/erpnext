@@ -32,9 +32,12 @@ def get_context(context):
 	context.program = program
 	context.course = course
 	context.topic = topic
-
-	topic = frappe.get_doc("Topic", topic)
-	content_list = [{'content_type':item.content_type, 'content':item.content} for item in topic.topic_content]
+	course = frappe.get_doc('Course', context.course)
+	context.topics = course.get_topics()
+	content_list = []
+	for t in context.topics:
+		for topic_content in t.topic_content:
+			content_list.append({'content_type':topic_content.content_type, 'content':topic_content.content})
 
 	# Set context for progress numbers
 	context.position = content_list.index({'content': content, 'content_type': content_type})
@@ -54,3 +57,8 @@ def allowed_content_access(program, content, content_type):
 			and `tabProgram Course`.parent = %(program)s""", {'program': program})
 
 	return (content, content_type) in contents_of_program
+
+@frappe.whitelist(allow_guest=True)
+def get_completed_topic_list(course_name):
+	completed_topic = frappe.get_all("Course Activity", filters={"course": course_name}, fields= ["content", "content_type", "enrollment"])
+	return completed_topic
