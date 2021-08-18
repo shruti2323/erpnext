@@ -97,8 +97,7 @@ def allowed_program_access(program, student=None):
 	Returns:
 		bool: Is current user enrolled or not
 	"""
-	if has_super_access():
-		return True
+
 	if not student:
 		student = get_current_student()
 	if student and get_enrollment('program', program, student.name):
@@ -139,8 +138,6 @@ def enroll_in_program(program_name, student=None):
 	Returns:
 		string: name of the program enrollment document
 	"""
-	if has_super_access():
-		return
 
 	if not student == None:
 		student = frappe.get_doc("Student", student)
@@ -194,9 +191,6 @@ def evaluate_quiz(quiz_response, quiz_name, course, program):
 	quiz = frappe.get_doc("Quiz", quiz_name)
 	result, score, status = quiz.evaluate(quiz_response, quiz_name)
 
-	if has_super_access():
-		return {'result': result, 'score': score, 'status': status}
-
 	if student:
 		enrollment = get_or_create_course_enrollment(course, program)
 		if quiz.allowed_attempt(enrollment, quiz_name):
@@ -222,8 +216,8 @@ def get_quiz(quiz_name, course):
 					for option in question.options],
 		} for question in questions]
 
-	if has_super_access():
-		return {'questions': questions, 'activity': None}
+	# if has_super_access():
+	# 	return {'questions': questions, 'activity': None}
 
 	student = get_current_student()
 	course_enrollment = get_enrollment("course", course, student.name)
@@ -391,11 +385,13 @@ def get_total_program_progress(topics, course_name, student):
 	for topic in topics:
 		total_article = total_article + len(topic.topic_content)
 	completed_article = frappe.db.count("Course Activity", {"course": course_name, "student": student.name}, "content")
-	total_progress = int((completed_article * 100) / total_article)
+	completed_quiz = frappe.db.count("Quiz Activity", {"course": course_name, "student": student.name}, "content")
+	total_progress = int(((completed_article + completed_quiz) * 100) / total_article)
 	return total_progress
 
 @frappe.whitelist(allow_guest=True)
 def get_completed_topic_list(course_name):
 	student = get_current_student()
 	completed_topic = frappe.get_all("Course Activity", filters={"course": course_name, "student": student.name}, fields=["content", "content_type", "enrollment", "student"])
-	return completed_topic
+	completed_quiz = frappe.get_all("Quiz Activity", filters={"course": course_name, "student": student.name}, fields=["quiz", "status", "enrollment", "student"])
+	return completed_topic + completed_quiz
