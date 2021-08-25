@@ -393,9 +393,9 @@ class PaymentEntry(AccountsController):
 			if self.payment_type == "Receive" \
 				and self.base_total_allocated_amount < self.base_received_amount + total_deductions \
 				and self.total_allocated_amount < self.paid_amount + (total_deductions / self.source_exchange_rate):
-					# Nonetype throws type error while performing mathematical manipulation thus assigned a value zero 
-					if self.base_total_discounted_amount is None:
-						self.base_total_discounted_amount = 0
+				# Nonetype throws type error while performing mathematical manipulation thus assigned a value zero 
+				if self.base_total_discounted_amount is None:
+					self.base_total_discounted_amount = 0
 					
 					self.unallocated_amount = (self.base_received_amount + total_deductions - self.base_total_discounted_amount -
 						self.base_total_allocated_amount) / self.source_exchange_rate
