@@ -397,7 +397,7 @@ class PaymentEntry(AccountsController):
 				if self.base_total_discounted_amount is None:
 					self.base_total_discounted_amount = 0
 					
-					self.unallocated_amount = (self.base_received_amount + total_deductions - self.base_total_discounted_amount -
+				self.unallocated_amount = (self.base_received_amount + total_deductions - self.base_total_discounted_amount -
 						self.base_total_allocated_amount) / self.source_exchange_rate
 			elif self.payment_type == "Pay" \
 				and self.base_total_allocated_amount < (self.base_paid_amount - total_deductions) \
