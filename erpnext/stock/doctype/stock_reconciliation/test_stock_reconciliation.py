@@ -15,7 +15,6 @@ from erpnext.stock.doctype.warehouse.test_warehouse import create_warehouse
 from erpnext.stock.doctype.item.test_item import create_item
 from erpnext.stock.utils import get_stock_balance, get_incoming_rate, get_available_serial_nos, get_stock_value_on
 from erpnext.stock.doctype.serial_no.serial_no import get_serial_nos
-from erpnext.stock.doctype.stock_entry.test_stock_entry import make_stock_entry
 
 class TestStockReconciliation(unittest.TestCase):
 	@classmethod
@@ -89,6 +88,8 @@ class TestStockReconciliation(unittest.TestCase):
 					{"voucher_type": "Stock Reconciliation", "voucher_no": stock_reco.name}))
 
 	def test_get_items(self):
+		from erpnext.stock.doctype.stock_entry.test_stock_entry import make_stock_entry
+
 		create_warehouse("_Test Warehouse Group 1", {"is_group": 1})
 		create_warehouse("_Test Warehouse Ledger 1",
 			{"is_group": 0, "parent_warehouse": "_Test Warehouse Group 1 - _TC"})
@@ -210,6 +211,8 @@ class TestStockReconciliation(unittest.TestCase):
 
 
 def insert_existing_sle(warehouse):
+	from erpnext.stock.doctype.stock_entry.test_stock_entry import make_stock_entry
+
 	make_stock_entry(posting_date="2012-12-15", posting_time="02:00", item_code="_Test Item",
 		target=warehouse, qty=10, basic_rate=700)
 
