@@ -15,6 +15,7 @@ from erpnext.stock.doctype.warehouse.test_warehouse import create_warehouse
 from erpnext.stock.doctype.item.test_item import create_item
 from erpnext.stock.utils import get_stock_balance, get_incoming_rate, get_available_serial_nos, get_stock_value_on
 from erpnext.stock.doctype.serial_no.serial_no import get_serial_nos
+from erpnext.stock.doctype.stock_entry.test_stock_entry import make_stock_entry
 
 class TestStockReconciliation(unittest.TestCase):
 	@classmethod
@@ -93,9 +94,12 @@ class TestStockReconciliation(unittest.TestCase):
 			{"is_group": 0, "parent_warehouse": "_Test Warehouse Group 1 - _TC"})
 
 		create_item("_Test Stock Reco Item", is_stock_item=1, valuation_rate=100,
-			warehouse="_Test Warehouse Ledger 1 - _TC", opening_stock=100)
+			warehouse="_Test Warehouse Ledger 1 - _TC", create_new_batch=1, has_batch_no=1)
 
-		items = get_items("_Test Warehouse Group 1 - _TC", nowdate(), nowtime(), "_Test Company")
+		make_stock_entry(posting_date="2012-12-15", posting_time="02:00", item_code="_Test Stock Reco Item",
+		target="_Test Warehouse Ledger - _TC", qty=100, basic_rate=100, batch_naming_series="BATCH-#####", purpose="Material Receipt")
+
+		items = get_items("_Test Warehouse Group - _TC", nowdate(), nowtime(), "_Test Company")
 
 		self.assertEqual(["_Test Stock Reco Item", "_Test Warehouse Ledger 1 - _TC", 100],
 			[items[0]["item_code"], items[0]["warehouse"], items[0]["qty"]])
@@ -206,8 +210,6 @@ class TestStockReconciliation(unittest.TestCase):
 
 
 def insert_existing_sle(warehouse):
-	from erpnext.stock.doctype.stock_entry.test_stock_entry import make_stock_entry
-
 	make_stock_entry(posting_date="2012-12-15", posting_time="02:00", item_code="_Test Item",
 		target=warehouse, qty=10, basic_rate=700)
 
@@ -234,7 +236,7 @@ def create_batch_or_serial_no_items():
 	if not batch_item_doc.has_batch_no:
 		batch_item_doc.has_batch_no = 1
 		batch_item_doc.create_new_batch = 1
-		serial_item_doc.batch_number_series = "BASR.#####"
+		batch_item_doc.batch_number_series = "BASR.#####"
 		batch_item_doc.save(ignore_permissions=True)
 
 def create_stock_reconciliation(**args):
