@@ -4,6 +4,8 @@ set -e
 
 cd ~ || exit
 
+sudo apt-get update
+
 sudo apt-get install redis-server
 
 sudo apt install nodejs
