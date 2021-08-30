@@ -8,6 +8,8 @@ sudo apt-get update
 
 sudo apt update
 
+sudo apt-get install libssl-dev
+
 sudo apt-get install redis-server
 
 sudo apt install nodejs
