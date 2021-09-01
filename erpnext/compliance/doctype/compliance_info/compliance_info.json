@@ -7,7 +7,7 @@
  "engine": "InnoDB",
  "field_order": [
   "company",
-  "section_break_2",
+  "section_break_1",
   "status",
   "synced_from_bloomtrace",
   "column_break_2",
@@ -127,11 +127,11 @@
    "reqd": 1
   },
   {
-   "fieldname": "section_break_2",
+   "fieldname": "section_break_1",
    "fieldtype": "Section Break"
   }
  ],
- "modified": "2021-08-31 06:34:08.925759",
+ "modified": "2021-09-01 08:05:30.729753",
  "modified_by": "Administrator",
  "module": "Compliance",
  "name": "Compliance Info",
