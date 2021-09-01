@@ -16,7 +16,7 @@
   "stop_delay",
   "delivery_window",
   "delivery_start_time",
-  "send_warnings_for_deliveries_outside_the_window",
+  "send_delivery_window_warning",
   "column_break_9",
   "delivery_end_time"
  ],
@@ -102,13 +102,13 @@
   {
    "default": "0",
    "description": "If an order is set to be delivered outside the global or customer's delivery window, then send out an email to the Fulfillment and Accounts Managers\n",
-   "fieldname": "send_warnings_for_deliveries_outside_the_window",
+   "fieldname": "send_delivery_window_warning",
    "fieldtype": "Check",
    "label": "Send Warnings for Deliveries Outside the Window"
   }
  ],
  "issingle": 1,
- "modified": "2021-08-31 13:38:32.437635",
+ "modified": "2021-08-31 23:55:13.290755",
  "modified_by": "Administrator",
  "module": "Stock",
  "name": "Delivery Settings",
