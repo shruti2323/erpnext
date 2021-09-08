@@ -4,7 +4,7 @@
 from __future__ import unicode_literals
 import frappe
 import json
-# changes
+
 def get_context(context):
 	project_user = frappe.db.get_value("Project User", {"parent": frappe.form_dict.project, "user": frappe.session.user} , ["user", "view_attachments"], as_dict= True)
 	if frappe.session.user != 'Administrator' and (not project_user or frappe.session.user == 'Guest'):
